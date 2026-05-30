@@ -28,6 +28,13 @@ const summary = {
 
 const storageKey = "stock-exit-portfolio-v3";
 const cloudConfigKey = "stock-exit-supabase-config-v1";
+const defaultCloudConfig = {
+  supabaseUrl: "https://rdwfdxpwmccayzrrxqur.supabase.co",
+  supabaseAnonKey: "sb_publishable_T9rVUpzsd7MvHYuo66_iRA_g-F_xj45",
+};
+const legacySupabaseUrls = new Set([
+  "https://rdwfdxpmcccayzrrxqur.supabase.co",
+]);
 
 let stocks = [
   { id: crypto.randomUUID(), symbol: "2330 台積電", entry: 800, buyDate: "2026-01-02", current: 950, high: 1000, shares: 1000 },
@@ -313,11 +320,16 @@ function restore() {
 function restoreCloudConfig() {
   try {
     const config = JSON.parse(localStorage.getItem(cloudConfigKey) || "{}");
-    cloudFields.supabaseUrl.value = config.supabaseUrl || "";
-    cloudFields.supabaseAnonKey.value = config.supabaseAnonKey || "";
+    const savedUrl = config.supabaseUrl || "";
+    cloudFields.supabaseUrl.value = legacySupabaseUrls.has(savedUrl)
+      ? defaultCloudConfig.supabaseUrl
+      : savedUrl || defaultCloudConfig.supabaseUrl;
+    cloudFields.supabaseAnonKey.value = config.supabaseAnonKey || defaultCloudConfig.supabaseAnonKey;
     cloudFields.loginEmail.value = config.loginEmail || "";
   } catch {
     localStorage.removeItem(cloudConfigKey);
+    cloudFields.supabaseUrl.value = defaultCloudConfig.supabaseUrl;
+    cloudFields.supabaseAnonKey.value = defaultCloudConfig.supabaseAnonKey;
   }
 }
 
