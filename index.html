@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101418">
+    <meta name="description" content="同時追蹤多檔股票的移動停利出場點。">
+    <title>股票移動停利清單</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="stylesheet" href="styles.css?v=5">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero" aria-labelledby="appTitle">
+        <div>
+          <p class="eyebrow">多標的移動停利工具</p>
+          <h1 id="appTitle">股票損益出場點清單</h1>
+          <p class="subtitle">每檔股票獨立計算：獲利超過 10% 後啟動移動停利；高點回落獲利金額的 20% 時，視為出場價格。</p>
+        </div>
+        <div class="hero-actions">
+          <button class="secondary-action" id="updateAll" type="button">更新全部高點</button>
+          <button class="primary-action" id="addStock" type="button" aria-label="新增標的">
+            <span aria-hidden="true">+</span>
+            新增標的
+          </button>
+        </div>
+      </section>
+
+      <section class="settings-panel" aria-label="全域停利設定">
+        <label>
+          <span>啟動獲利率</span>
+          <div class="percent-input">
+            <input id="activationPercent" inputmode="decimal" type="number" min="0" step="0.1" value="10">
+            <span>%</span>
+          </div>
+        </label>
+
+        <label>
+          <span>回落獲利比例</span>
+          <div class="percent-input">
+            <input id="pullbackPercent" inputmode="decimal" type="number" min="0" max="100" step="0.1" value="20">
+            <span>%</span>
+          </div>
+        </label>
+      </section>
+
+      <section class="cloud-panel" aria-label="雲端同步設定">
+        <div class="cloud-head">
+          <div>
+            <h2>雲端同步</h2>
+            <p id="cloudStatus">尚未連線，資料目前只存在這台裝置。</p>
+          </div>
+          <button class="secondary-action compact" id="cloudSignOut" type="button" hidden>登出</button>
+        </div>
+
+        <div class="cloud-grid">
+          <label>
+            <span>Supabase URL</span>
+            <input id="supabaseUrl" type="url" placeholder="https://xxxx.supabase.co">
+          </label>
+          <label>
+            <span>Anon public key</span>
+            <input id="supabaseAnonKey" type="password" autocomplete="off" placeholder="eyJ...">
+          </label>
+          <label>
+            <span>Email</span>
+            <input id="loginEmail" type="email" autocomplete="email" placeholder="you@example.com">
+          </label>
+          <div class="cloud-actions">
+            <button class="secondary-action" id="saveCloudConfig" type="button">儲存設定</button>
+            <button class="primary-action" id="sendLoginLink" type="button">寄登入連結</button>
+            <button class="secondary-action" id="syncNow" type="button">立即同步</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="summary-grid" aria-live="polite">
+        <div class="summary-card alert">
+          <span>需要出場</span>
+          <strong id="exitCount">0</strong>
+        </div>
+        <div class="summary-card">
+          <span>已啟動持有</span>
+          <strong id="holdCount">0</strong>
+        </div>
+        <div class="summary-card muted">
+          <span>尚未啟動</span>
+          <strong id="inactiveCount">0</strong>
+        </div>
+        <div class="summary-card total">
+          <span>估算出場獲利</span>
+          <strong id="totalProfit">-</strong>
+        </div>
+      </section>
+
+      <section class="stock-list" aria-label="股票清單">
+        <div class="list-head">
+          <h2>標的清單</h2>
+          <p id="listHint">資料會自動儲存在這台裝置的瀏覽器。</p>
+        </div>
+        <div id="stocks"></div>
+      </section>
+    </main>
+
+    <template id="stockTemplate">
+      <article class="stock-card">
+        <div class="stock-card-head">
+          <label class="symbol-field">
+            <span>股票名稱 / 代號</span>
+            <input data-field="symbol" type="text" value="新標的">
+          </label>
+          <button class="icon-action" data-action="remove" type="button" aria-label="刪除標的">×</button>
+        </div>
+
+        <div class="stock-inputs">
+          <label>
+            <span>買進價格</span>
+            <input data-field="entry" inputmode="decimal" type="number" min="0" step="0.01">
+          </label>
+          <label>
+            <span>買進日期</span>
+            <input data-field="buyDate" type="date">
+          </label>
+          <label>
+            <span>目前價格</span>
+            <input data-field="current" inputmode="decimal" type="number" min="0" step="0.01">
+          </label>
+          <label>
+            <span>持有期間最高價</span>
+            <input data-field="high" inputmode="decimal" type="number" min="0" step="0.01">
+          </label>
+          <label>
+            <span>股數</span>
+            <input data-field="shares" inputmode="numeric" type="number" min="0" step="1">
+          </label>
+        </div>
+
+        <div class="stock-result">
+          <div class="status-row">
+            <span class="badge" data-output="status">待輸入</span>
+            <strong data-output="message">請輸入價格</strong>
+          </div>
+          <div class="update-row">
+            <button class="update-action" data-action="update-high" type="button">更新高點</button>
+            <span data-output="updateStatus">使用上市股票代號查詢</span>
+          </div>
+          <div class="result-grid">
+            <div>
+              <span>出場價</span>
+              <strong data-output="exitPrice">-</strong>
+            </div>
+            <div>
+              <span>啟動價</span>
+              <strong data-output="activationPrice">-</strong>
+            </div>
+            <div>
+              <span>高點獲利率</span>
+              <strong data-output="highGain">-</strong>
+            </div>
+            <div>
+              <span>距離出場價</span>
+              <strong data-output="distance">-</strong>
+            </div>
+            <div>
+              <span>回落金額</span>
+              <strong data-output="pullback">-</strong>
+            </div>
+            <div>
+              <span>出場獲利</span>
+              <strong data-output="profit">-</strong>
+            </div>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js?v=5"></script>
+  </body>
+</html>
