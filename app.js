@@ -32,7 +32,8 @@ const defaultCloudConfig = {
   supabaseUrl: "https://rdwfdxpwmccayzrrxqur.supabase.co",
   supabaseAnonKey: "sb_publishable_T9rVUpzsd7MvHYuo66_iRA_g-F_xj45",
 };
-const authStorageKey = "stock-exit-auth-session-v1";
+const authStorageKey = "sb-rdwfdxpwmccayzrrxqur-auth-token";
+const legacyAuthStorageKeys = ["stock-exit-auth-session-v1"];
 const legacySupabaseUrls = new Set([
   "https://rdwfdxpmcccayzrrxqur.supabase.co",
 ]);
@@ -76,6 +77,16 @@ let hasLocalChanges = false;
 let hasLoadedCloudOnce = false;
 let cloudRefreshTimer = null;
 let cloudChannel = null;
+
+function migrateAuthSessionStorage() {
+  try {
+    if (localStorage.getItem(authStorageKey)) return;
+    const legacyKey = legacyAuthStorageKeys.find((key) => localStorage.getItem(key));
+    if (legacyKey) localStorage.setItem(authStorageKey, localStorage.getItem(legacyKey));
+  } catch {
+    // Some browsers can block storage; Supabase will fall back to an in-memory session.
+  }
+}
 
 async function applySession(session) {
   currentUser = session?.user || null;
@@ -437,6 +448,7 @@ async function initSupabase() {
     return null;
   }
 
+  migrateAuthSessionStorage();
   supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
     auth: {
       persistSession: true,
