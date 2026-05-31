@@ -3,7 +3,10 @@ const template = document.querySelector("#stockTemplate");
 const addStockButton = document.querySelector("#addStock");
 const updateAllButton = document.querySelector("#updateAll");
 const cloudStatus = document.querySelector("#cloudStatus");
+const cloudLoginButton = document.querySelector("#cloudLogin");
 const cloudSignOut = document.querySelector("#cloudSignOut");
+const loginModal = document.querySelector("#loginModal");
+const closeLoginModalButton = document.querySelector("#closeLoginModal");
 const saveCloudConfigButton = document.querySelector("#saveCloudConfig");
 const sendLoginLinkButton = document.querySelector("#sendLoginLink");
 const verifyLoginCodeButton = document.querySelector("#verifyLoginCode");
@@ -81,6 +84,7 @@ let cloudRefreshTimer = null;
 let cloudChannel = null;
 const stockLookupTimers = new Map();
 const stockLookupCache = new Map();
+let tpexListingsPromise = null;
 
 function migrateAuthSessionStorage() {
   try {
@@ -95,16 +99,18 @@ function migrateAuthSessionStorage() {
 async function applySession(session) {
   currentUser = session?.user || null;
   cloudReady = Boolean(currentUser);
+  cloudLoginButton.hidden = Boolean(currentUser);
   cloudSignOut.hidden = !currentUser;
   sendLoginLinkButton.hidden = Boolean(currentUser);
   verifyLoginCodeButton.hidden = Boolean(currentUser);
   cloudFields.loginCode.closest("label").hidden = Boolean(currentUser);
 
   if (!currentUser) {
-    setCloudStatus("Supabase 已設定，請輸入 Email 並寄驗證碼。");
+    setCloudStatus("尚未登入，資料目前只存在這台裝置。");
     return;
   }
 
+  closeLoginModal();
   cloudFields.loginCode.value = "";
   setCloudStatus(`已登入 ${currentUser.email}，變更會即時同步。`);
   startCloudRealtime();
@@ -203,6 +209,42 @@ async function fetchTwseMonth(stockNo, monthKey) {
   return Array.isArray(data.data) ? data.data : [];
 }
 
+async function fetchJson(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("資料來源暫時無法連線");
+  return response.json();
+}
+
+async function loadTpexListings() {
+  if (!tpexListingsPromise) {
+    tpexListingsPromise = Promise.all([
+      fetchJson("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes"),
+      fetchJson("https://www.tpex.org.tw/openapi/v1/tpex_esb_latest_statistics"),
+    ]).then(([mainboard, emerging]) => [
+      ...mainboard.map((row) => ({
+        code: String(row.SecuritiesCompanyCode || "").trim(),
+        name: String(row.CompanyName || "").trim(),
+        market: "otc",
+        high: parseTwseNumber(row.High),
+        current: parseTwseNumber(row.Close),
+      })),
+      ...emerging.map((row) => ({
+        code: String(row.SecuritiesCompanyCode || "").trim(),
+        name: String(row.CompanyName || "").trim(),
+        market: "emerging",
+        high: parseTwseNumber(row.Highest),
+        current: parseTwseNumber(row.LatestPrice || row.Average),
+      })),
+    ].filter((item) => item.code && item.name));
+  }
+  return tpexListingsPromise;
+}
+
+async function findTpexStock(stockNo) {
+  const listings = await loadTpexListings();
+  return listings.find((item) => item.code === stockNo) || null;
+}
+
 async function fetchListedSymbolLabel(stockNo) {
   if (stockLookupCache.has(stockNo)) return stockLookupCache.get(stockNo);
 
@@ -220,6 +262,13 @@ async function fetchListedSymbolLabel(stockNo) {
       stockLookupCache.set(stockNo, label);
       return label;
     }
+  }
+
+  const tpexStock = await findTpexStock(stockNo);
+  if (tpexStock) {
+    const label = `${stockNo} ${tpexStock.name}`;
+    stockLookupCache.set(stockNo, label);
+    return label;
   }
 
   return "";
@@ -282,6 +331,38 @@ async function fetchListedHighSince(stock) {
   return { high: highest, current: latestClose, latestDate };
 }
 
+async function fetchTpexLatest(stock) {
+  const stockNo = parseStockNo(stock.symbol);
+  if (!stockNo) throw new Error("請輸入股票代號");
+  const tpexStock = await findTpexStock(stockNo);
+  if (!tpexStock) throw new Error("查無上市、上櫃或興櫃資料");
+  if (!Number.isFinite(tpexStock.high) && !Number.isFinite(tpexStock.current)) {
+    throw new Error("TPEx 目前沒有可用報價");
+  }
+  return {
+    high: Number.isFinite(tpexStock.high) ? tpexStock.high : tpexStock.current,
+    current: Number.isFinite(tpexStock.current) ? tpexStock.current : tpexStock.high,
+    latestDate: new Date(),
+    market: tpexStock.market,
+  };
+}
+
+async function fetchMarketHigh(stock) {
+  try {
+    return await fetchListedHighSince(stock);
+  } catch (listedError) {
+    if (/請先|不能晚於/.test(listedError.message)) throw listedError;
+    const tpexData = await fetchTpexLatest(stock);
+    return {
+      ...tpexData,
+      note: tpexData.market === "emerging"
+        ? "興櫃使用 TPEx 最新均價/成交資訊"
+        : "上櫃使用 TPEx 最新收盤資訊",
+      listedError,
+    };
+  }
+}
+
 function setUpdateStatus(id, text, state = "") {
   const card = stocksEl.querySelector(`[data-id="${id}"]`);
   if (!card) return;
@@ -292,6 +373,15 @@ function setUpdateStatus(id, text, state = "") {
 
 function setCloudStatus(text) {
   cloudStatus.textContent = text;
+}
+
+function openLoginModal() {
+  loginModal.hidden = false;
+  window.setTimeout(() => cloudFields.loginEmail.focus(), 0);
+}
+
+function closeLoginModal() {
+  loginModal.hidden = true;
 }
 
 function toDbNumber(value) {
@@ -714,15 +804,15 @@ async function updateHigh(id) {
   if (!stock) return;
   setUpdateStatus(id, "更新中...");
   try {
-    const data = await fetchListedHighSince(stock);
+    const data = await fetchMarketHigh(stock);
     stocks = stocks.map((item) => (
       item.id === id
-        ? { ...item, high: data.high, current: data.current ?? item.current }
+        ? { ...item, high: Math.max(numberValue(item.high), data.high), current: data.current ?? item.current }
         : item
     ));
     save();
     render();
-    setUpdateStatus(id, `已更新至 ${data.latestDate?.toLocaleDateString("zh-TW") || "最新交易日"}`, "success");
+    setUpdateStatus(id, data.note || `已更新至 ${data.latestDate?.toLocaleDateString("zh-TW") || "最新交易日"}`, "success");
   } catch (error) {
     setUpdateStatus(id, error.message, "error");
   }
@@ -793,6 +883,12 @@ saveCloudConfigButton.addEventListener("click", async () => {
   await initSupabase();
 });
 
+cloudLoginButton.addEventListener("click", openLoginModal);
+closeLoginModalButton.addEventListener("click", closeLoginModal);
+loginModal.addEventListener("click", (event) => {
+  if (event.target === loginModal) closeLoginModal();
+});
+
 sendLoginLinkButton.addEventListener("click", sendLoginCode);
 verifyLoginCodeButton.addEventListener("click", verifyLoginCode);
 
@@ -815,6 +911,7 @@ cloudSignOut.addEventListener("click", async () => {
   hasLocalChanges = false;
   hasLoadedCloudOnce = false;
   window.clearInterval(cloudRefreshTimer);
+  cloudLoginButton.hidden = false;
   cloudSignOut.hidden = true;
   sendLoginLinkButton.hidden = false;
   verifyLoginCodeButton.hidden = false;
