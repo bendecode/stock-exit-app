@@ -32,6 +32,7 @@ const defaultCloudConfig = {
   supabaseUrl: "https://rdwfdxpwmccayzrrxqur.supabase.co",
   supabaseAnonKey: "sb_publishable_T9rVUpzsd7MvHYuo66_iRA_g-F_xj45",
 };
+const authStorageKey = "stock-exit-auth-session-v1";
 const legacySupabaseUrls = new Set([
   "https://rdwfdxpmcccayzrrxqur.supabase.co",
 ]);
@@ -49,6 +50,23 @@ let hasLocalChanges = false;
 let hasLoadedCloudOnce = false;
 let cloudRefreshTimer = null;
 let cloudChannel = null;
+
+async function applySession(session) {
+  currentUser = session?.user || null;
+  cloudReady = Boolean(currentUser);
+  cloudSignOut.hidden = !currentUser;
+  sendLoginLinkButton.hidden = Boolean(currentUser);
+
+  if (!currentUser) {
+    setCloudStatus("Supabase 已設定，請輸入 Email 並寄登入連結。");
+    return;
+  }
+
+  setCloudStatus(`已登入 ${currentUser.email}，變更會即時同步。`);
+  startCloudRealtime();
+  startCloudAutoRefresh();
+  await pullCloudPositions({ silent: true });
+}
 
 function numberValue(value) {
   return Number.parseFloat(value) || 0;
@@ -272,6 +290,8 @@ function refreshResults() {
     const status = card.querySelector("[data-output='status']");
     status.className = `badge ${result.state}`;
     status.textContent = result.label;
+    card.querySelector("[data-output='summarySymbol']").textContent = stock.symbol || "未命名";
+    card.querySelector("[data-output='summaryCurrent']").textContent = currency(numberValue(stock.current));
     card.querySelector("[data-output='message']").textContent = result.message;
     card.querySelector("[data-output='exitPrice']").textContent = currency(result.exitPrice);
     card.querySelector("[data-output='activationPrice']").textContent = currency(result.activationPrice);
@@ -378,7 +398,18 @@ async function initSupabase() {
     return null;
   }
 
-  supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+  supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storageKey: authStorageKey,
+    },
+  });
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
+    applySession(session);
+  });
+
   const { data, error } = await supabaseClient.auth.getSession();
   if (error) {
     cloudReady = false;
@@ -386,17 +417,7 @@ async function initSupabase() {
     return null;
   }
 
-  currentUser = data.session?.user || null;
-  cloudReady = Boolean(currentUser);
-  cloudSignOut.hidden = !currentUser;
-  if (currentUser) {
-    setCloudStatus(`已登入 ${currentUser.email}，變更會即時同步。`);
-    startCloudRealtime();
-    startCloudAutoRefresh();
-    await pullCloudPositions({ silent: true });
-  } else {
-    setCloudStatus("Supabase 已設定，請輸入 Email 並寄登入連結。");
-  }
+  await applySession(data.session);
   return supabaseClient;
 }
 
@@ -574,6 +595,17 @@ stocksEl.addEventListener("click", (event) => {
     return;
   }
 
+  const toggleButton = event.target.closest("[data-action='toggle-details']");
+  if (toggleButton) {
+    const card = event.target.closest(".stock-card");
+    const details = card.querySelector(".stock-details");
+    const isOpen = !details.hidden;
+    details.hidden = isOpen;
+    toggleButton.setAttribute("aria-expanded", String(!isOpen));
+    card.classList.toggle("expanded", !isOpen);
+    return;
+  }
+
   const button = event.target.closest("[data-action='remove']");
   if (!button) return;
   const card = event.target.closest(".stock-card");
@@ -610,6 +642,7 @@ cloudSignOut.addEventListener("click", async () => {
   hasLoadedCloudOnce = false;
   window.clearInterval(cloudRefreshTimer);
   cloudSignOut.hidden = true;
+  sendLoginLinkButton.hidden = false;
   setCloudStatus("已登出，資料目前只存在這台裝置。");
 });
 

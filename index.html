@@ -7,7 +7,7 @@
     <meta name="description" content="同時追蹤多檔股票的移動停利出場點。">
     <title>股票移動停利清單</title>
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=9">
+    <link rel="stylesheet" href="styles.css?v=11">
   </head>
   <body>
     <main class="app-shell">
@@ -108,70 +108,81 @@
 
     <template id="stockTemplate">
       <article class="stock-card">
-        <div class="stock-card-head">
-          <label class="symbol-field">
-            <span>股票名稱 / 代號</span>
-            <input data-field="symbol" type="text" value="新標的">
-          </label>
-          <button class="icon-action" data-action="remove" type="button" aria-label="刪除標的">×</button>
-        </div>
+        <button class="position-summary" data-action="toggle-details" type="button" aria-expanded="false">
+          <span class="position-symbol" data-output="summarySymbol">新標的</span>
+          <span data-output="status">待輸入</span>
+          <span>
+            <small>目前價</small>
+            <strong data-output="summaryCurrent">-</strong>
+          </span>
+          <span>
+            <small>出場價</small>
+            <strong data-output="exitPrice">-</strong>
+          </span>
+          <span>
+            <small>距離</small>
+            <strong data-output="distance">-</strong>
+          </span>
+          <span>
+            <small>估算獲利</small>
+            <strong data-output="profit">-</strong>
+          </span>
+          <span class="summary-cue" aria-hidden="true">詳情</span>
+        </button>
 
-        <div class="stock-inputs">
-          <label>
-            <span>買進價格</span>
-            <input data-field="entry" inputmode="decimal" type="number" min="0" step="0.01">
-          </label>
-          <label>
-            <span>買進日期</span>
-            <input data-field="buyDate" type="date">
-          </label>
-          <label>
-            <span>目前價格</span>
-            <input data-field="current" inputmode="decimal" type="number" min="0" step="0.01">
-          </label>
-          <label>
-            <span>持有期間最高價</span>
-            <input data-field="high" inputmode="decimal" type="number" min="0" step="0.01">
-          </label>
-          <label>
-            <span>股數</span>
-            <input data-field="shares" inputmode="numeric" type="number" min="0" step="1">
-          </label>
-        </div>
+        <div class="stock-details" hidden>
+          <div class="stock-card-head">
+            <label class="symbol-field">
+              <span>股票名稱 / 代號</span>
+              <input data-field="symbol" type="text" value="新標的">
+            </label>
+            <button class="icon-action" data-action="remove" type="button" aria-label="刪除標的">×</button>
+          </div>
 
-        <div class="stock-result">
-          <div class="status-row">
-            <span class="badge" data-output="status">待輸入</span>
-            <strong data-output="message">請輸入價格</strong>
+          <div class="stock-inputs">
+            <label>
+              <span>買進價格</span>
+              <input data-field="entry" inputmode="decimal" type="number" min="0" step="0.01">
+            </label>
+            <label>
+              <span>買進日期</span>
+              <input data-field="buyDate" type="date">
+            </label>
+            <label>
+              <span>目前價格</span>
+              <input data-field="current" inputmode="decimal" type="number" min="0" step="0.01">
+            </label>
+            <label>
+              <span>持有期間最高價</span>
+              <input data-field="high" inputmode="decimal" type="number" min="0" step="0.01">
+            </label>
+            <label>
+              <span>股數</span>
+              <input data-field="shares" inputmode="numeric" type="number" min="0" step="1">
+            </label>
           </div>
-          <div class="update-row">
-            <button class="update-action" data-action="update-high" type="button">更新高點</button>
-            <span data-output="updateStatus">使用上市股票代號查詢</span>
-          </div>
-          <div class="result-grid">
-            <div>
-              <span>出場價</span>
-              <strong data-output="exitPrice">-</strong>
+
+          <div class="stock-result">
+            <div class="status-row">
+              <strong data-output="message">請輸入價格</strong>
             </div>
-            <div>
-              <span>啟動價</span>
-              <strong data-output="activationPrice">-</strong>
+            <div class="update-row">
+              <button class="update-action" data-action="update-high" type="button">更新高點</button>
+              <span data-output="updateStatus">使用上市股票代號查詢</span>
             </div>
-            <div>
-              <span>高點獲利率</span>
-              <strong data-output="highGain">-</strong>
-            </div>
-            <div>
-              <span>距離出場價</span>
-              <strong data-output="distance">-</strong>
-            </div>
-            <div>
-              <span>回落金額</span>
-              <strong data-output="pullback">-</strong>
-            </div>
-            <div>
-              <span>出場獲利</span>
-              <strong data-output="profit">-</strong>
+            <div class="result-grid">
+              <div>
+                <span>啟動價</span>
+                <strong data-output="activationPrice">-</strong>
+              </div>
+              <div>
+                <span>高點獲利率</span>
+                <strong data-output="highGain">-</strong>
+              </div>
+              <div>
+                <span>回落金額</span>
+                <strong data-output="pullback">-</strong>
+              </div>
             </div>
           </div>
         </div>
@@ -179,6 +190,6 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=9"></script>
+    <script src="app.js?v=11"></script>
   </body>
 </html>

@@ -328,13 +328,72 @@ input:focus {
 
 .stock-card {
   display: grid;
-  grid-template-columns: minmax(180px, 0.7fr) minmax(470px, 1.4fr) minmax(540px, 1.7fr);
-  gap: 8px;
-  align-items: stretch;
-  padding: 8px;
+  gap: 0;
+  padding: 0;
   background: #ffffff;
   border: 1px solid var(--line);
   border-radius: 8px;
+  overflow: hidden;
+}
+
+.position-summary {
+  width: 100%;
+  min-height: 68px;
+  display: grid;
+  grid-template-columns: minmax(160px, 1.4fr) auto repeat(4, minmax(110px, 1fr)) 64px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  background: #ffffff;
+  color: var(--ink);
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.position-summary:hover {
+  background: #f8fafc;
+}
+
+.position-symbol {
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.position-summary small {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.position-summary strong {
+  display: block;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 900;
+  text-align: right;
+}
+
+.summary-cue {
+  justify-self: end;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.stock-card.expanded .summary-cue {
+  color: var(--accent-strong);
+}
+
+.stock-details {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(470px, 1.4fr) minmax(360px, 1.2fr);
+  gap: 8px;
+  padding: 8px;
+  border-top: 1px solid var(--line);
+  background: #fbfdff;
 }
 
 .stock-card-head {
@@ -474,7 +533,7 @@ input:focus {
 }
 
 @media (max-width: 1180px) {
-  .stock-card {
+  .stock-details {
     grid-template-columns: 1fr;
   }
 
@@ -523,6 +582,29 @@ input:focus {
   .stock-inputs,
   .result-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .position-summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 10px;
+  }
+
+  .position-summary > span:not(.position-symbol):not(.badge):not(.summary-cue) {
+    min-width: 0;
+  }
+
+  .position-summary small,
+  .position-summary strong {
+    text-align: left;
+  }
+
+  .position-symbol {
+    font-size: 1.05rem;
+  }
+
+  .summary-cue {
+    grid-column: 2;
+    grid-row: 1;
   }
 
   .stock-result {
@@ -576,7 +658,7 @@ input:focus {
   }
 
   .stock-card {
-    padding: 12px;
+    padding: 0;
   }
 
   .stock-inputs,
