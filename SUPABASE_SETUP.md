@@ -41,3 +41,19 @@ http://localhost:8765/
 ## 5. 登入與同步
 
 在 app 輸入 Email，按「寄登入連結」，到信箱點登入連結。登入後按「立即同步」，手機和電腦用同一個 Email 登入就會看到同一份標的清單。
+
+## 6. 啟用櫃買資料代理
+
+GitHub Pages 是純前端網站，瀏覽器會擋掉部分櫃買中心資料 API 的跨網域讀取。若要讓上櫃/興櫃標的穩定更新高點，請部署 `supabase/functions/market-proxy`。
+
+若使用 Supabase CLI：
+
+```bash
+supabase functions deploy market-proxy --no-verify-jwt
+```
+
+部署後 app 會自動優先使用：
+
+```text
+https://你的專案.supabase.co/functions/v1/market-proxy
+```

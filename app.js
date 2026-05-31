@@ -216,11 +216,25 @@ async function fetchJson(url) {
   return response.json();
 }
 
+async function fetchMarketJson(source, directUrl) {
+  const supabaseUrl = (cloudFields.supabaseUrl.value || defaultCloudConfig.supabaseUrl || "").replace(/\/$/, "");
+  if (supabaseUrl) {
+    try {
+      const proxyUrl = `${supabaseUrl}/functions/v1/market-proxy?source=${encodeURIComponent(source)}`;
+      const response = await fetch(proxyUrl);
+      if (response.ok) return response.json();
+    } catch {
+      // Fall back to direct fetch; some browsers block market APIs without the proxy.
+    }
+  }
+  return fetchJson(directUrl);
+}
+
 async function loadTpexListings() {
   if (!tpexListingsPromise) {
     tpexListingsPromise = Promise.all([
-      fetchJson("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes"),
-      fetchJson("https://www.tpex.org.tw/openapi/v1/tpex_esb_latest_statistics"),
+      fetchMarketJson("tpex-mainboard", "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes"),
+      fetchMarketJson("tpex-emerging", "https://www.tpex.org.tw/openapi/v1/tpex_esb_latest_statistics"),
     ]).then(([mainboard, emerging]) => [
       ...mainboard.map((row) => ({
         code: String(row.SecuritiesCompanyCode || "").trim(),
