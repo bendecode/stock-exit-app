@@ -426,11 +426,15 @@ input:focus {
 }
 
 .position-summary strong.gain-up {
-  color: var(--accent-strong);
+  color: var(--danger);
 }
 
 .position-summary strong.gain-down {
-  color: var(--danger);
+  color: var(--accent-strong);
+}
+
+.position-summary strong.gain-warning {
+  color: var(--warning);
 }
 
 .summary-cue {

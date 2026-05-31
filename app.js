@@ -430,6 +430,12 @@ function calculateStock(stock) {
   const activationRate = numberValue(settings.activationPercent.value) / 100;
   const pullbackRate = numberValue(settings.pullbackPercent.value) / 100;
   const currentGain = entry > 0 && current > 0 ? ((current - entry) / entry) * 100 : null;
+  const profitPullbackRate = high > entry && current < high
+    ? (high - current) / (high - entry)
+    : 0;
+  const isPullbackWarning = Number.isFinite(currentGain)
+    && currentGain > 0
+    && profitPullbackRate >= pullbackRate;
 
   if (entry <= 0 || current <= 0 || high <= 0) {
     return {
@@ -443,6 +449,7 @@ function calculateStock(stock) {
       pullback: null,
       profit: null,
       currentGain,
+      isPullbackWarning: false,
     };
   }
 
@@ -463,6 +470,7 @@ function calculateStock(stock) {
       pullback: null,
       profit: null,
       currentGain,
+      isPullbackWarning,
     };
   }
 
@@ -484,6 +492,7 @@ function calculateStock(stock) {
     pullback,
     profit,
     currentGain,
+    isPullbackWarning,
   };
 }
 
@@ -526,8 +535,10 @@ function refreshResults() {
     card.querySelector("[data-output='summaryCurrent']").textContent = currency(numberValue(stock.current));
     const gainPercent = card.querySelector("[data-output='gainPercent']");
     gainPercent.textContent = percent(result.currentGain);
-    gainPercent.className = Number.isFinite(result.currentGain)
-      ? (result.currentGain >= 0 ? "gain-up" : "gain-down")
+    gainPercent.className = result.isPullbackWarning
+      ? "gain-warning"
+      : Number.isFinite(result.currentGain)
+        ? (result.currentGain >= 0 ? "gain-up" : "gain-down")
       : "";
     card.querySelector("[data-output='message']").textContent = result.message;
     card.querySelector("[data-output='exitPrice']").textContent = currency(result.exitPrice);
