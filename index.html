@@ -7,15 +7,14 @@
     <meta name="description" content="同時追蹤多檔股票的移動停利出場點。">
     <title>股票移動停利清單</title>
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=6">
+    <link rel="stylesheet" href="styles.css?v=9">
   </head>
   <body>
     <main class="app-shell">
       <section class="hero" aria-labelledby="appTitle">
         <div>
-          <p class="eyebrow">多標的移動停利工具</p>
-          <h1 id="appTitle">股票損益出場點清單</h1>
-          <p class="subtitle">每檔股票獨立計算：獲利超過 10% 後啟動移動停利；高點回落獲利金額的 20% 時，視為出場價格。</p>
+          <p class="eyebrow">EXIT MONITOR</p>
+          <h1 id="appTitle">移動停利監控</h1>
         </div>
         <div class="hero-actions">
           <button class="secondary-action" id="updateAll" type="button">更新全部高點</button>
@@ -55,22 +54,27 @@
 
         <div class="cloud-grid">
           <label>
-            <span>Supabase URL</span>
-            <input id="supabaseUrl" type="url" placeholder="https://xxxx.supabase.co">
-          </label>
-          <label>
-            <span>Anon public key</span>
-            <input id="supabaseAnonKey" type="password" autocomplete="off" placeholder="eyJ...">
-          </label>
-          <label>
             <span>Email</span>
             <input id="loginEmail" type="email" autocomplete="email" placeholder="you@example.com">
           </label>
           <div class="cloud-actions">
-            <button class="secondary-action" id="saveCloudConfig" type="button">儲存設定</button>
             <button class="primary-action" id="sendLoginLink" type="button">寄登入連結</button>
             <button class="secondary-action" id="syncNow" type="button">立即同步</button>
           </div>
+          <details class="cloud-advanced">
+            <summary>連線設定</summary>
+            <div class="cloud-advanced-grid">
+              <label>
+                <span>Supabase URL</span>
+                <input id="supabaseUrl" type="url" placeholder="https://xxxx.supabase.co">
+              </label>
+              <label>
+                <span>Publishable key</span>
+                <input id="supabaseAnonKey" type="password" autocomplete="off" placeholder="sb_publishable_...">
+              </label>
+              <button class="secondary-action" id="saveCloudConfig" type="button">儲存設定</button>
+            </div>
+          </details>
         </div>
       </section>
 
@@ -95,8 +99,8 @@
 
       <section class="stock-list" aria-label="股票清單">
         <div class="list-head">
-          <h2>標的清單</h2>
-          <p id="listHint">資料會自動儲存在這台裝置的瀏覽器。</p>
+          <h2>持倉監控</h2>
+          <p id="listHint">Positions</p>
         </div>
         <div id="stocks"></div>
       </section>
@@ -175,6 +179,6 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=6"></script>
+    <script src="app.js?v=9"></script>
   </body>
 </html>
