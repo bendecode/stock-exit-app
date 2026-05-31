@@ -371,6 +371,14 @@ function setUpdateStatus(id, text, state = "") {
   label.textContent = text;
 }
 
+function friendlyErrorMessage(error) {
+  const message = String(error?.message || error || "");
+  if (/FetchEvent|respondWith|response is null|Network request failed|Failed to fetch|Service Unavailable/i.test(message)) {
+    return "資料來源暫時無法連線，請稍後再試。";
+  }
+  return message || "發生未知錯誤";
+}
+
 function setCloudStatus(text) {
   cloudStatus.textContent = text;
 }
@@ -823,7 +831,7 @@ async function updateHigh(id) {
     render();
     setUpdateStatus(id, data.note || `已更新至 ${data.latestDate?.toLocaleDateString("zh-TW") || "最新交易日"}`, "success");
   } catch (error) {
-    setUpdateStatus(id, error.message, "error");
+    setUpdateStatus(id, friendlyErrorMessage(error), "error");
   }
 }
 

@@ -1,4 +1,4 @@
-const cacheName = "stock-exit-calculator-v17";
+const cacheName = "stock-exit-calculator-v18";
 const assets = [
   "./",
   "./index.html",
@@ -27,10 +27,21 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        const copy = response.clone();
-        caches.open(cacheName).then((cache) => cache.put(event.request, copy));
+        const requestUrl = new URL(event.request.url);
+        if (requestUrl.origin === self.location.origin && response.ok) {
+          const copy = response.clone();
+          caches.open(cacheName).then((cache) => cache.put(event.request, copy));
+        }
         return response;
       })
-      .catch(() => caches.match(event.request)),
+      .catch(async () => {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        return new Response("Network request failed", {
+          status: 503,
+          statusText: "Service Unavailable",
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+        });
+      }),
   );
 });
