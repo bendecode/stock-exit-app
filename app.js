@@ -421,6 +421,7 @@ function calculateStock(stock) {
   const shares = numberValue(stock.shares);
   const activationRate = numberValue(settings.activationPercent.value) / 100;
   const pullbackRate = numberValue(settings.pullbackPercent.value) / 100;
+  const currentGain = entry > 0 && current > 0 ? ((current - entry) / entry) * 100 : null;
 
   if (entry <= 0 || current <= 0 || high <= 0) {
     return {
@@ -433,6 +434,7 @@ function calculateStock(stock) {
       distance: null,
       pullback: null,
       profit: null,
+      currentGain,
     };
   }
 
@@ -452,6 +454,7 @@ function calculateStock(stock) {
       distance: null,
       pullback: null,
       profit: null,
+      currentGain,
     };
   }
 
@@ -472,6 +475,7 @@ function calculateStock(stock) {
     distance,
     pullback,
     profit,
+    currentGain,
   };
 }
 
@@ -512,6 +516,11 @@ function refreshResults() {
     const shares = numberValue(stock.shares);
     card.querySelector("[data-output='summaryShares']").textContent = shares > 0 ? shares.toLocaleString("zh-TW") : "-";
     card.querySelector("[data-output='summaryCurrent']").textContent = currency(numberValue(stock.current));
+    const gainPercent = card.querySelector("[data-output='gainPercent']");
+    gainPercent.textContent = percent(result.currentGain);
+    gainPercent.className = Number.isFinite(result.currentGain)
+      ? (result.currentGain >= 0 ? "gain-up" : "gain-down")
+      : "";
     card.querySelector("[data-output='message']").textContent = result.message;
     card.querySelector("[data-output='exitPrice']").textContent = currency(result.exitPrice);
     card.querySelector("[data-output='activationPrice']").textContent = currency(result.activationPrice);
