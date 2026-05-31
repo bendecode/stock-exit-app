@@ -66,6 +66,7 @@ const stockDirectory = [
   ["3711", "日月光投控"],
   ["5871", "中租-KY"],
   ["5880", "合庫金"],
+  ["8358", "金居"],
   ["6505", "台塑化"],
 ].map(([code, name]) => ({ code, name, label: `${code} ${name}` }));
 
@@ -235,7 +236,10 @@ async function loadTpexListings() {
         high: parseTwseNumber(row.Highest),
         current: parseTwseNumber(row.LatestPrice || row.Average),
       })),
-    ].filter((item) => item.code && item.name));
+    ].filter((item) => item.code && item.name)).catch(() => {
+      tpexListingsPromise = null;
+      throw new Error("瀏覽器無法直接讀取櫃買資料，請先手動輸入目前價，或啟用資料代理。");
+    });
   }
   return tpexListingsPromise;
 }
@@ -292,11 +296,25 @@ function scheduleSymbolLookup(id, rawValue) {
       if (!canReplace) return;
       stocks = stocks.map((item) => (item.id === id ? { ...item, symbol: label } : item));
       save();
-      render();
+      updateCardSymbolLabel(id, label);
+      refreshResults();
     } catch {
       // Keep the user's input when online lookup is unavailable.
     }
   }, 450));
+}
+
+function updateCardSymbolLabel(id, label) {
+  const card = stocksEl.querySelector(`[data-id="${id}"]`);
+  if (!card) return;
+  const symbolInput = card.querySelector("[data-field='symbol']");
+  if (symbolInput && document.activeElement !== symbolInput) symbolInput.value = label;
+  if (symbolInput && document.activeElement === symbolInput) {
+    symbolInput.value = label;
+    symbolInput.setSelectionRange(label.length, label.length);
+  }
+  const summarySymbol = card.querySelector("[data-output='summarySymbol']");
+  if (summarySymbol) summarySymbol.textContent = label || "未命名";
 }
 
 async function fetchListedHighSince(stock) {
@@ -497,6 +515,9 @@ function calculateStock(stock) {
 }
 
 function render() {
+  const openIds = new Set(
+    [...stocksEl.querySelectorAll(".stock-card.expanded")].map((card) => card.dataset.id),
+  );
   stocksEl.innerHTML = "";
 
   stocks.forEach((stock) => {
@@ -509,9 +530,30 @@ function render() {
     card.querySelector("[data-field='high']").value = stock.high;
     card.querySelector("[data-field='shares']").value = stock.shares;
     stocksEl.append(card);
+    if (openIds.has(stock.id)) setCardOpen(card, true);
   });
 
   refreshResults();
+}
+
+function setCardOpen(card, isOpen) {
+  const details = card?.querySelector(".stock-details");
+  const toggleButton = card?.querySelector("[data-action='toggle-details']");
+  if (!details || !toggleButton) return;
+  details.hidden = !isOpen;
+  toggleButton.setAttribute("aria-expanded", String(isOpen));
+  card.classList.toggle("expanded", isOpen);
+}
+
+function openStockForEditing(id) {
+  const card = stocksEl.querySelector(`[data-id="${id}"]`);
+  if (!card) return;
+  setCardOpen(card, true);
+  const symbolInput = card.querySelector("[data-field='symbol']");
+  if (symbolInput) {
+    symbolInput.focus();
+    symbolInput.select();
+  }
 }
 
 function refreshResults() {
@@ -819,12 +861,14 @@ function updateStock(id, field, value) {
 }
 
 addStockButton.addEventListener("click", () => {
+  const id = crypto.randomUUID();
   stocks = [
     ...stocks,
-    { id: crypto.randomUUID(), symbol: "新標的", entry: "", buyDate: "", current: "", high: "", shares: "" },
+    { id, symbol: "新標的", entry: "", buyDate: "", current: "", high: "", shares: "" },
   ];
   save();
   render();
+  openStockForEditing(id);
 });
 
 async function updateHigh(id) {
@@ -886,10 +930,7 @@ stocksEl.addEventListener("click", (event) => {
   if (toggleButton) {
     const card = event.target.closest(".stock-card");
     const details = card.querySelector(".stock-details");
-    const isOpen = !details.hidden;
-    details.hidden = isOpen;
-    toggleButton.setAttribute("aria-expanded", String(!isOpen));
-    card.classList.toggle("expanded", !isOpen);
+    setCardOpen(card, details.hidden);
     return;
   }
 
