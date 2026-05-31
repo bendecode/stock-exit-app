@@ -57,3 +57,24 @@ create trigger positions_set_updated_at
 before update on public.positions
 for each row
 execute function public.set_updated_at();
+
+grant usage on schema public to authenticated;
+
+grant select, insert, update, delete
+on table public.positions
+to authenticated;
+
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+    and not exists (
+      select 1
+      from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = 'positions'
+    ) then
+    alter publication supabase_realtime add table public.positions;
+  end if;
+end;
+$$;
