@@ -1,4 +1,4 @@
-const cacheName = "stock-exit-calculator-v23";
+const cacheName = "stock-exit-calculator-v24";
 const assets = [
   "./",
   "./index.html",
