@@ -44,6 +44,11 @@ let supabaseClient = null;
 let currentUser = null;
 let cloudReady = false;
 let syncing = false;
+let pullingCloud = false;
+let hasLocalChanges = false;
+let hasLoadedCloudOnce = false;
+let cloudRefreshTimer = null;
+let cloudChannel = null;
 
 function numberValue(value) {
   return Number.parseFloat(value) || 0;
@@ -283,6 +288,12 @@ function refreshResults() {
 }
 
 function save() {
+  hasLocalChanges = true;
+  saveLocalSnapshot();
+  scheduleCloudSave();
+}
+
+function saveLocalSnapshot() {
   const data = {
     settings: {
       activationPercent: settings.activationPercent.value,
@@ -291,7 +302,18 @@ function save() {
     stocks,
   };
   localStorage.setItem(storageKey, JSON.stringify(data));
-  scheduleCloudSave();
+}
+
+function stocksSignature(items = stocks) {
+  return JSON.stringify(items.map((stock) => ({
+    id: stock.id,
+    symbol: stock.symbol || "",
+    entry: stock.entry ?? "",
+    buyDate: stock.buyDate ?? "",
+    current: stock.current ?? "",
+    high: stock.high ?? "",
+    shares: stock.shares ?? "",
+  })));
 }
 
 function restore() {
@@ -368,12 +390,37 @@ async function initSupabase() {
   cloudReady = Boolean(currentUser);
   cloudSignOut.hidden = !currentUser;
   if (currentUser) {
-    setCloudStatus(`已登入 ${currentUser.email}，資料會同步到 Supabase。`);
-    await loadCloudPositions();
+    setCloudStatus(`已登入 ${currentUser.email}，變更會即時同步。`);
+    startCloudRealtime();
+    startCloudAutoRefresh();
+    await pullCloudPositions({ silent: true });
   } else {
     setCloudStatus("Supabase 已設定，請輸入 Email 並寄登入連結。");
   }
   return supabaseClient;
+}
+
+function startCloudRealtime() {
+  if (!supabaseClient || !currentUser) return;
+  if (cloudChannel) supabaseClient.removeChannel(cloudChannel);
+
+  cloudChannel = supabaseClient
+    .channel(`positions:${currentUser.id}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "positions",
+        filter: `user_id=eq.${currentUser.id}`,
+      },
+      () => {
+        if (!hasLocalChanges) pullCloudPositions({ silent: true });
+      },
+    )
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") setCloudStatus(`已登入 ${currentUser.email}，即時同步已啟用。`);
+    });
 }
 
 async function sendLoginLink() {
@@ -395,28 +442,30 @@ async function sendLoginLink() {
   setCloudStatus("登入連結已寄出，請到 Email 點連結後回到這個 app。");
 }
 
-async function loadCloudPositions() {
-  if (!supabaseClient || !currentUser) return;
+async function pullCloudPositions({ silent = false } = {}) {
+  if (!supabaseClient || !currentUser || pullingCloud || syncing || hasLocalChanges) return;
+  pullingCloud = true;
   const { data, error } = await supabaseClient
     .from("positions")
     .select("*")
     .order("created_at", { ascending: true });
+  pullingCloud = false;
   if (error) {
     setCloudStatus(error.message);
     return;
   }
-  if (Array.isArray(data) && data.length > 0) {
-    stocks = data.map(fromPositionRow);
-    localStorage.setItem(storageKey, JSON.stringify({
-      settings: {
-        activationPercent: settings.activationPercent.value,
-        pullbackPercent: settings.pullbackPercent.value,
-      },
-      stocks,
-    }));
-    render();
+  if (Array.isArray(data) && (data.length > 0 || hasLoadedCloudOnce)) {
+    const cloudStocks = data.map(fromPositionRow);
+    if (stocksSignature(cloudStocks) !== stocksSignature()) {
+      stocks = cloudStocks;
+      saveLocalSnapshot();
+      render();
+    }
+    hasLoadedCloudOnce = true;
+    if (!silent) setCloudStatus(`已更新雲端資料，共 ${stocks.length} 檔標的。`);
   } else if (stocks.length > 0) {
     await syncCloudNow();
+    hasLoadedCloudOnce = true;
   }
 }
 
@@ -431,7 +480,8 @@ async function syncCloudNow() {
       const { error } = await supabaseClient.from("positions").upsert(rows, { onConflict: "id" });
       if (error) throw error;
     }
-    setCloudStatus(`已同步 ${stocks.length} 檔標的到 Supabase。`);
+    hasLocalChanges = false;
+    setCloudStatus(`已自動同步 ${stocks.length} 檔標的。`);
   } catch (error) {
     setCloudStatus(error.message);
   } finally {
@@ -446,7 +496,14 @@ let cloudSaveTimer = null;
 function scheduleCloudSave() {
   if (!cloudReady) return;
   window.clearTimeout(cloudSaveTimer);
-  cloudSaveTimer = window.setTimeout(syncCloudNow, 700);
+  cloudSaveTimer = window.setTimeout(syncCloudNow, 300);
+}
+
+function startCloudAutoRefresh() {
+  window.clearInterval(cloudRefreshTimer);
+  cloudRefreshTimer = window.setInterval(() => {
+    if (document.visibilityState === "visible") pullCloudPositions({ silent: true });
+  }, 20000);
 }
 
 function updateStock(id, field, value) {
@@ -539,15 +596,29 @@ sendLoginLinkButton.addEventListener("click", sendLoginLink);
 
 syncNowButton.addEventListener("click", async () => {
   await initSupabase();
-  await syncCloudNow();
+  if (hasLocalChanges) await syncCloudNow();
+  await pullCloudPositions();
 });
 
 cloudSignOut.addEventListener("click", async () => {
+  if (supabaseClient && cloudChannel) await supabaseClient.removeChannel(cloudChannel);
+  cloudChannel = null;
   if (supabaseClient) await supabaseClient.auth.signOut();
   currentUser = null;
   cloudReady = false;
+  hasLocalChanges = false;
+  hasLoadedCloudOnce = false;
+  window.clearInterval(cloudRefreshTimer);
   cloudSignOut.hidden = true;
   setCloudStatus("已登出，資料目前只存在這台裝置。");
+});
+
+window.addEventListener("focus", () => {
+  pullCloudPositions({ silent: true });
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") pullCloudPositions({ silent: true });
 });
 
 restore();
