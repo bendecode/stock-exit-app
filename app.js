@@ -38,6 +38,7 @@ const defaultCloudConfig = {
   supabaseAnonKey: "sb_publishable_T9rVUpzsd7MvHYuo66_iRA_g-F_xj45",
 };
 const authStorageKey = "sb-rdwfdxpwmccayzrrxqur-auth-token";
+const cloudSettingsSymbol = "__stock_exit_settings__";
 const legacyAuthStorageKeys = ["stock-exit-auth-session-v1"];
 const legacySupabaseUrls = new Set([
   "https://rdwfdxpmcccayzrrxqur.supabase.co",
@@ -84,6 +85,7 @@ let hasLocalChanges = false;
 let hasLoadedCloudOnce = false;
 let cloudRefreshTimer = null;
 let cloudChannel = null;
+let cloudSettingsId = null;
 const stockLookupTimers = new Map();
 const stockLookupCache = new Map();
 let tpexListingsPromise = null;
@@ -108,6 +110,7 @@ async function applySession(session) {
   cloudFields.loginCode.closest("label").hidden = Boolean(currentUser);
 
   if (!currentUser) {
+    cloudSettingsId = null;
     setCloudStatus("尚未登入，資料目前只存在這台裝置。");
     return;
   }
@@ -478,6 +481,19 @@ function toPositionRow(stock) {
   };
 }
 
+function toSettingsRow() {
+  return {
+    id: cloudSettingsId,
+    user_id: currentUser.id,
+    symbol: cloudSettingsSymbol,
+    entry_price: toDbNumber(settings.activationPercent.value),
+    buy_date: null,
+    current_price: null,
+    high_price: toDbNumber(settings.pullbackPercent.value),
+    shares: null,
+  };
+}
+
 function fromPositionRow(row) {
   return {
     id: row.id,
@@ -488,6 +504,22 @@ function fromPositionRow(row) {
     high: row.high_price ?? "",
     shares: row.shares ?? "",
   };
+}
+
+function applyCloudSettings(row) {
+  if (!row) return false;
+  cloudSettingsId = row.id;
+  const nextActivation = row.entry_price ?? "";
+  const nextPullback = row.high_price ?? "";
+  const changed = String(settings.activationPercent.value) !== String(nextActivation)
+    || String(settings.pullbackPercent.value) !== String(nextPullback);
+  settings.activationPercent.value = nextActivation;
+  settings.pullbackPercent.value = nextPullback;
+  if (changed) {
+    saveLocalSnapshot();
+    refreshResults();
+  }
+  return changed;
 }
 
 function calculateStock(stock) {
@@ -851,8 +883,13 @@ async function pullCloudPositions({ silent = false } = {}) {
     setCloudStatus(error.message);
     return;
   }
-  if (Array.isArray(data) && (data.length > 0 || hasLoadedCloudOnce)) {
-    const cloudStocks = data.map(fromPositionRow);
+  const rows = Array.isArray(data) ? data : [];
+  const settingsRow = rows.find((row) => row.symbol === cloudSettingsSymbol);
+  const positionRows = rows.filter((row) => row.symbol !== cloudSettingsSymbol);
+  if (settingsRow) applyCloudSettings(settingsRow);
+
+  if (positionRows.length > 0 || hasLoadedCloudOnce) {
+    const cloudStocks = positionRows.map(fromPositionRow);
     if (stocksSignature(cloudStocks) !== stocksSignature()) {
       stocks = cloudStocks;
       saveLocalSnapshot();
@@ -866,19 +903,32 @@ async function pullCloudPositions({ silent = false } = {}) {
   }
 }
 
+async function ensureCloudSettingsId() {
+  if (cloudSettingsId) return;
+  const { data, error } = await supabaseClient
+    .from("positions")
+    .select("id")
+    .eq("symbol", cloudSettingsSymbol)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  cloudSettingsId = data?.id || crypto.randomUUID();
+}
+
 async function syncCloudNow() {
   if (!supabaseClient || !currentUser || syncing) return;
   syncing = true;
   syncNowButton.disabled = true;
   syncNowButton.textContent = "同步中...";
   try {
-    const rows = stocks.map(toPositionRow);
+    await ensureCloudSettingsId();
+    const rows = [...stocks.map(toPositionRow), toSettingsRow()];
     if (rows.length > 0) {
       const { error } = await supabaseClient.from("positions").upsert(rows, { onConflict: "id" });
       if (error) throw error;
     }
     hasLocalChanges = false;
-    setCloudStatus(`已自動同步 ${stocks.length} 檔標的。`);
+    setCloudStatus(`已自動同步 ${stocks.length} 檔標的與停利設定。`);
   } catch (error) {
     setCloudStatus(error.message);
   } finally {
@@ -1032,6 +1082,7 @@ cloudSignOut.addEventListener("click", async () => {
   cloudReady = false;
   hasLocalChanges = false;
   hasLoadedCloudOnce = false;
+  cloudSettingsId = null;
   window.clearInterval(cloudRefreshTimer);
   cloudLoginButton.hidden = false;
   cloudSignOut.hidden = true;
