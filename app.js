@@ -36,6 +36,32 @@ const authStorageKey = "stock-exit-auth-session-v1";
 const legacySupabaseUrls = new Set([
   "https://rdwfdxpmcccayzrrxqur.supabase.co",
 ]);
+const stockDirectory = [
+  ["1101", "台泥"],
+  ["1216", "統一"],
+  ["1301", "台塑"],
+  ["1303", "南亞"],
+  ["2002", "中鋼"],
+  ["2303", "聯電"],
+  ["2308", "台達電"],
+  ["2317", "鴻海"],
+  ["2330", "台積電"],
+  ["2357", "華碩"],
+  ["2382", "廣達"],
+  ["2412", "中華電"],
+  ["2454", "聯發科"],
+  ["2881", "富邦金"],
+  ["2882", "國泰金"],
+  ["2884", "玉山金"],
+  ["2886", "兆豐金"],
+  ["2891", "中信金"],
+  ["2892", "第一金"],
+  ["3008", "大立光"],
+  ["3711", "日月光投控"],
+  ["5871", "中租-KY"],
+  ["5880", "合庫金"],
+  ["6505", "台塑化"],
+].map(([code, name]) => ({ code, name, label: `${code} ${name}` }));
 
 let stocks = [
   { id: crypto.randomUUID(), symbol: "2330 台積電", entry: 800, buyDate: "2026-01-02", current: 950, high: 1000, shares: 1000 },
@@ -87,6 +113,17 @@ function percent(value) {
 
 function parseStockNo(symbol) {
   return String(symbol || "").match(/\d{4,6}/)?.[0] || "";
+}
+
+function normalizeSymbol(value) {
+  const text = String(value || "").trim();
+  if (!text) return text;
+  const code = parseStockNo(text);
+  const normalizedName = text.replace(/\s/g, "");
+  const match = stockDirectory.find((item) => (
+    item.code === code || item.name === normalizedName || item.label.replace(/\s/g, "") === normalizedName
+  ));
+  return match ? match.label : text;
 }
 
 function parseTwseNumber(value) {
@@ -291,6 +328,8 @@ function refreshResults() {
     status.className = `badge ${result.state}`;
     status.textContent = result.label;
     card.querySelector("[data-output='summarySymbol']").textContent = stock.symbol || "未命名";
+    const shares = numberValue(stock.shares);
+    card.querySelector("[data-output='summaryShares']").textContent = shares > 0 ? shares.toLocaleString("zh-TW") : "-";
     card.querySelector("[data-output='summaryCurrent']").textContent = currency(numberValue(stock.current));
     card.querySelector("[data-output='message']").textContent = result.message;
     card.querySelector("[data-output='exitPrice']").textContent = currency(result.exitPrice);
@@ -528,11 +567,13 @@ function startCloudAutoRefresh() {
 }
 
 function updateStock(id, field, value) {
+  const nextValue = field === "symbol" ? normalizeSymbol(value) : value;
   stocks = stocks.map((stock) => (
-    stock.id === id ? { ...stock, [field]: value } : stock
+    stock.id === id ? { ...stock, [field]: nextValue } : stock
   ));
   save();
   refreshResults();
+  return nextValue;
 }
 
 addStockButton.addEventListener("click", () => {
@@ -584,7 +625,8 @@ stocksEl.addEventListener("input", (event) => {
   const input = event.target.closest("[data-field]");
   if (!input) return;
   const card = event.target.closest(".stock-card");
-  updateStock(card.dataset.id, input.dataset.field, input.value);
+  const nextValue = updateStock(card.dataset.id, input.dataset.field, input.value);
+  if (input.dataset.field === "symbol" && nextValue !== input.value) input.value = nextValue;
 });
 
 stocksEl.addEventListener("click", (event) => {
