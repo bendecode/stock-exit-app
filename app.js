@@ -342,9 +342,16 @@ async function fetchListedHighSince(stock) {
   let latestClose = null;
   let latestDate = null;
   const months = monthKeysBetween(startDate, endDate);
+  let loadedMonths = 0;
 
   for (const monthKey of months) {
-    const rows = await fetchTwseMonth(stockNo, monthKey);
+    let rows = [];
+    try {
+      rows = await fetchTwseMonth(stockNo, monthKey);
+      loadedMonths += 1;
+    } catch {
+      continue;
+    }
     rows.forEach((row) => {
       const rowDate = parseTwseDate(row[0]);
       if (!rowDate || rowDate < startDate || rowDate > endDate) return;
@@ -358,8 +365,21 @@ async function fetchListedHighSince(stock) {
     });
   }
 
+  if (loadedMonths === 0) throw new Error("上市資料代理暫時無法連線，請稍後再試。");
   if (highest === null) throw new Error("查無這段期間的日成交資料");
   return { high: highest, current: latestClose, latestDate };
+}
+
+async function hasListedData(stockNo) {
+  for (const monthKey of previousMonthKeys(3)) {
+    try {
+      const data = await fetchTwseMonthPayload(stockNo, monthKey);
+      if (data.stat === "OK" && parseListedSymbolTitle(stockNo, data.title)) return true;
+    } catch {
+      continue;
+    }
+  }
+  return false;
 }
 
 async function fetchTpexLatest(stock) {
@@ -379,11 +399,18 @@ async function fetchTpexLatest(stock) {
 }
 
 async function fetchMarketHigh(stock) {
+  const stockNo = parseStockNo(stock.symbol);
   try {
     return await fetchListedHighSince(stock);
   } catch (listedError) {
     if (/請先|不能晚於/.test(listedError.message)) throw listedError;
-    const tpexData = await fetchTpexLatest(stock);
+    let tpexData = null;
+    try {
+      tpexData = await fetchTpexLatest(stock);
+    } catch (tpexError) {
+      if (stockNo && await hasListedData(stockNo)) throw listedError;
+      throw tpexError;
+    }
     return {
       ...tpexData,
       note: tpexData.market === "emerging"
