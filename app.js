@@ -6,12 +6,14 @@ const cloudStatus = document.querySelector("#cloudStatus");
 const cloudSignOut = document.querySelector("#cloudSignOut");
 const saveCloudConfigButton = document.querySelector("#saveCloudConfig");
 const sendLoginLinkButton = document.querySelector("#sendLoginLink");
+const verifyLoginCodeButton = document.querySelector("#verifyLoginCode");
 const syncNowButton = document.querySelector("#syncNow");
 
 const cloudFields = {
   supabaseUrl: document.querySelector("#supabaseUrl"),
   supabaseAnonKey: document.querySelector("#supabaseAnonKey"),
   loginEmail: document.querySelector("#loginEmail"),
+  loginCode: document.querySelector("#loginCode"),
 };
 
 const settings = {
@@ -93,12 +95,15 @@ async function applySession(session) {
   cloudReady = Boolean(currentUser);
   cloudSignOut.hidden = !currentUser;
   sendLoginLinkButton.hidden = Boolean(currentUser);
+  verifyLoginCodeButton.hidden = Boolean(currentUser);
+  cloudFields.loginCode.closest("label").hidden = Boolean(currentUser);
 
   if (!currentUser) {
-    setCloudStatus("Supabase 已設定，請輸入 Email 並寄登入連結。");
+    setCloudStatus("Supabase 已設定，請輸入 Email 並寄驗證碼。");
     return;
   }
 
+  cloudFields.loginCode.value = "";
   setCloudStatus(`已登入 ${currentUser.email}，變更會即時同步。`);
   startCloudRealtime();
   startCloudAutoRefresh();
@@ -495,23 +500,55 @@ function startCloudRealtime() {
     });
 }
 
-async function sendLoginLink() {
+async function sendLoginCode() {
   const client = await initSupabase();
   const email = cloudFields.loginEmail.value.trim();
   if (!client || !email) {
     setCloudStatus("請先填 Supabase 設定和 Email。");
     return;
   }
+  sendLoginLinkButton.disabled = true;
+  sendLoginLinkButton.textContent = "寄送中...";
   const { error } = await client.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: window.location.href.split("#")[0] },
+    options: { shouldCreateUser: true },
   });
+  sendLoginLinkButton.disabled = false;
+  sendLoginLinkButton.textContent = "寄驗證碼";
   if (error) {
     setCloudStatus(error.message);
     return;
   }
   saveCloudConfig();
-  setCloudStatus("登入連結已寄出，請到 Email 點連結後回到這個 app。");
+  setCloudStatus("驗證碼已寄出，請在這裡輸入 Email 裡的 6 位數驗證碼。");
+  cloudFields.loginCode.focus();
+}
+
+async function verifyLoginCode() {
+  const client = await initSupabase();
+  const email = cloudFields.loginEmail.value.trim();
+  const token = cloudFields.loginCode.value.trim().replace(/\s/g, "");
+  if (!client || !email || !token) {
+    setCloudStatus("請先填 Email 和驗證碼。");
+    return;
+  }
+
+  verifyLoginCodeButton.disabled = true;
+  verifyLoginCodeButton.textContent = "驗證中...";
+  const { data, error } = await client.auth.verifyOtp({
+    email,
+    token,
+    type: "email",
+  });
+  verifyLoginCodeButton.disabled = false;
+  verifyLoginCodeButton.textContent = "驗證登入";
+  if (error) {
+    setCloudStatus(error.message);
+    return;
+  }
+
+  saveCloudConfig();
+  await applySession(data.session);
 }
 
 async function pullCloudPositions({ silent = false } = {}) {
@@ -678,7 +715,12 @@ saveCloudConfigButton.addEventListener("click", async () => {
   await initSupabase();
 });
 
-sendLoginLinkButton.addEventListener("click", sendLoginLink);
+sendLoginLinkButton.addEventListener("click", sendLoginCode);
+verifyLoginCodeButton.addEventListener("click", verifyLoginCode);
+
+cloudFields.loginCode.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") verifyLoginCode();
+});
 
 syncNowButton.addEventListener("click", async () => {
   await initSupabase();
@@ -697,6 +739,8 @@ cloudSignOut.addEventListener("click", async () => {
   window.clearInterval(cloudRefreshTimer);
   cloudSignOut.hidden = true;
   sendLoginLinkButton.hidden = false;
+  verifyLoginCodeButton.hidden = false;
+  cloudFields.loginCode.closest("label").hidden = false;
   setCloudStatus("已登出，資料目前只存在這台裝置。");
 });
 

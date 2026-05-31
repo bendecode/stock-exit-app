@@ -175,7 +175,7 @@ h1 {
 
 .cloud-grid {
   display: grid;
-  grid-template-columns: minmax(180px, 260px) auto auto;
+  grid-template-columns: minmax(180px, 260px) minmax(96px, 120px) auto auto;
   gap: 8px;
   align-items: end;
 }
@@ -563,7 +563,7 @@ input:focus {
   }
 
   .cloud-grid {
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) minmax(96px, 120px);
   }
 
   .cloud-actions {
