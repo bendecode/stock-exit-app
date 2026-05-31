@@ -573,28 +573,47 @@ input:focus {
 
 @media (max-width: 760px) {
   .app-shell {
-    width: min(100% - 24px, 620px);
-    padding-top: 18px;
+    width: min(100% - 16px, 620px);
+    padding-top: 10px;
   }
 
   .hero {
-    align-items: stretch;
-    flex-direction: column;
-    padding: 22px;
+    align-items: center;
+    padding: 12px;
   }
 
   .hero-actions {
-    flex-direction: column;
+    gap: 7px;
   }
 
   .secondary-action,
   .primary-action {
-    width: 100%;
+    width: auto;
+    min-width: 86px;
+    height: 34px;
+    padding: 0 10px;
+    font-size: 0.86rem;
   }
 
-  .settings-panel,
+  .settings-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 8px;
+  }
+
   .summary-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .summary-card {
+    min-height: 50px;
+    padding: 8px 10px;
+  }
+
+  .summary-card strong {
+    margin-top: 4px;
+    font-size: 1.12rem;
   }
 
   .cloud-grid {
@@ -607,8 +626,10 @@ input:focus {
   }
 
   .position-summary {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px 10px;
+    min-height: auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding: 9px;
   }
 
   .position-summary > span:not(.position-symbol):not(.badge):not(.summary-cue) {
@@ -621,12 +642,19 @@ input:focus {
   }
 
   .position-symbol {
+    grid-column: 1 / 3;
     font-size: 1.05rem;
   }
 
-  .summary-cue {
-    grid-column: 2;
+  .position-summary .badge {
+    justify-self: end;
+    grid-column: 3;
     grid-row: 1;
+  }
+
+  .summary-cue {
+    grid-column: 3;
+    justify-self: end;
   }
 
   .stock-result {
@@ -653,7 +681,7 @@ input:focus {
   }
 
   .stock-list {
-    padding: 16px;
+    padding: 8px;
   }
 
   .status-row {
@@ -671,15 +699,38 @@ input:focus {
 
 @media (max-width: 430px) {
   .app-shell {
-    width: calc(100% - 18px);
+    width: calc(100% - 12px);
   }
 
   h1 {
-    font-size: 1.9rem;
+    font-size: 1.24rem;
+  }
+
+  .eyebrow {
+    font-size: 0.62rem;
+  }
+
+  .hero {
+    gap: 8px;
+  }
+
+  .hero-actions {
+    flex-shrink: 0;
   }
 
   .stock-card {
     padding: 0;
+  }
+
+  .summary-card span,
+  label span,
+  .position-summary small {
+    font-size: 0.68rem;
+  }
+
+  input {
+    height: 34px;
+    padding: 0 9px;
   }
 
   .stock-inputs,

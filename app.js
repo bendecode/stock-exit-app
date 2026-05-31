@@ -79,6 +79,8 @@ let hasLocalChanges = false;
 let hasLoadedCloudOnce = false;
 let cloudRefreshTimer = null;
 let cloudChannel = null;
+const stockLookupTimers = new Map();
+const stockLookupCache = new Map();
 
 function migrateAuthSessionStorage() {
   try {
@@ -134,12 +136,34 @@ function parseStockNo(symbol) {
 function normalizeSymbol(value) {
   const text = String(value || "").trim();
   if (!text) return text;
+  const match = findKnownStock(text);
+  return match ? match.label : text;
+}
+
+function findKnownStock(value) {
+  const text = String(value || "").trim();
   const code = parseStockNo(text);
   const normalizedName = text.replace(/\s/g, "");
-  const match = stockDirectory.find((item) => (
+  return stockDirectory.find((item) => (
     item.code === code || item.name === normalizedName || item.label.replace(/\s/g, "") === normalizedName
   ));
-  return match ? match.label : text;
+}
+
+function previousMonthKeys(count) {
+  const keys = [];
+  const cursor = new Date();
+  cursor.setDate(1);
+  for (let index = 0; index < count; index += 1) {
+    keys.push(toMonthKey(cursor));
+    cursor.setMonth(cursor.getMonth() - 1);
+  }
+  return keys;
+}
+
+function parseListedSymbolTitle(stockNo, title) {
+  const text = String(title || "").replace(/\s+/g, " ").trim();
+  const match = text.match(new RegExp(`${stockNo}\\s+(.+?)\\s+(?:各日|每日|日成交)`));
+  return match?.[1]?.trim() || "";
 }
 
 function parseTwseNumber(value) {
@@ -166,13 +190,64 @@ function monthKeysBetween(startDate, endDate) {
   return keys;
 }
 
-async function fetchTwseMonth(stockNo, monthKey) {
+async function fetchTwseMonthPayload(stockNo, monthKey) {
   const url = `https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?date=${monthKey}&stockNo=${stockNo}&response=json`;
   const response = await fetch(url);
   if (!response.ok) throw new Error("資料來源暫時無法連線");
-  const data = await response.json();
+  return response.json();
+}
+
+async function fetchTwseMonth(stockNo, monthKey) {
+  const data = await fetchTwseMonthPayload(stockNo, monthKey);
   if (data.stat && data.stat !== "OK") return [];
   return Array.isArray(data.data) ? data.data : [];
+}
+
+async function fetchListedSymbolLabel(stockNo) {
+  if (stockLookupCache.has(stockNo)) return stockLookupCache.get(stockNo);
+
+  for (const monthKey of previousMonthKeys(3)) {
+    let data = null;
+    try {
+      data = await fetchTwseMonthPayload(stockNo, monthKey);
+    } catch {
+      continue;
+    }
+    if (data.stat && data.stat !== "OK") continue;
+    const name = parseListedSymbolTitle(stockNo, data.title);
+    if (name) {
+      const label = `${stockNo} ${name}`;
+      stockLookupCache.set(stockNo, label);
+      return label;
+    }
+  }
+
+  return "";
+}
+
+function scheduleSymbolLookup(id, rawValue) {
+  const text = String(rawValue || "").trim();
+  const stockNo = parseStockNo(text);
+  if (!stockNo || findKnownStock(text)) return;
+
+  window.clearTimeout(stockLookupTimers.get(id));
+  stockLookupTimers.set(id, window.setTimeout(async () => {
+    try {
+      const label = await fetchListedSymbolLabel(stockNo);
+      if (!label) return;
+      const stock = stocks.find((item) => item.id === id);
+      if (!stock) return;
+      const currentText = String(stock.symbol || "").trim();
+      const currentNo = parseStockNo(currentText);
+      const canReplace = currentText === stockNo || currentText === text || (currentNo === stockNo && !currentText.includes(" "));
+      if (!canReplace) return;
+      stocks = stocks.map((item) => (item.id === id ? { ...item, symbol: label } : item));
+      save();
+      render();
+    } catch {
+      // Keep the user's input when online lookup is unavailable.
+    }
+  }, 450));
 }
 
 async function fetchListedHighSince(stock) {
@@ -520,7 +595,7 @@ async function sendLoginCode() {
     return;
   }
   saveCloudConfig();
-  setCloudStatus("驗證碼已寄出，請在這裡輸入 Email 裡的 6 位數驗證碼。");
+  setCloudStatus("驗證碼已寄出，請在這裡輸入 Email 裡的驗證碼。");
   cloudFields.loginCode.focus();
 }
 
@@ -675,7 +750,10 @@ stocksEl.addEventListener("input", (event) => {
   if (!input) return;
   const card = event.target.closest(".stock-card");
   const nextValue = updateStock(card.dataset.id, input.dataset.field, input.value);
-  if (input.dataset.field === "symbol" && nextValue !== input.value) input.value = nextValue;
+  if (input.dataset.field === "symbol") {
+    if (nextValue !== input.value) input.value = nextValue;
+    scheduleSymbolLookup(card.dataset.id, nextValue);
+  }
 });
 
 stocksEl.addEventListener("click", (event) => {
