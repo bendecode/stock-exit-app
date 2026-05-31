@@ -4,18 +4,28 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
 
-const sources: Record<string, string> = {
+const staticSources: Record<string, string> = {
   "tpex-mainboard": "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
   "tpex-emerging": "https://www.tpex.org.tw/openapi/v1/tpex_esb_latest_statistics",
 };
+
+function resolveSourceUrl(url: URL) {
+  const source = url.searchParams.get("source") || "";
+  if (source === "twse-stock-day") {
+    const stockNo = url.searchParams.get("stockNo") || "";
+    const date = url.searchParams.get("date") || "";
+    if (!/^\d{4,6}$/.test(stockNo) || !/^\d{8}$/.test(date)) return "";
+    return `https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?date=${date}&stockNo=${stockNo}&response=json`;
+  }
+  return staticSources[source] || "";
+}
 
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  const source = new URL(request.url).searchParams.get("source") || "";
-  const targetUrl = sources[source];
+  const targetUrl = resolveSourceUrl(new URL(request.url));
   if (!targetUrl) {
     return new Response(JSON.stringify({ error: "Unknown market data source" }), {
       status: 400,

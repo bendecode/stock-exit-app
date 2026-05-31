@@ -199,9 +199,7 @@ function monthKeysBetween(startDate, endDate) {
 
 async function fetchTwseMonthPayload(stockNo, monthKey) {
   const url = `https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?date=${monthKey}&stockNo=${stockNo}&response=json`;
-  const response = await fetch(url);
-  if (!response.ok) throw new Error("資料來源暫時無法連線");
-  return response.json();
+  return fetchMarketJson("twse-stock-day", url, { stockNo, date: monthKey });
 }
 
 async function fetchTwseMonth(stockNo, monthKey) {
@@ -216,11 +214,12 @@ async function fetchJson(url) {
   return response.json();
 }
 
-async function fetchMarketJson(source, directUrl) {
+async function fetchMarketJson(source, directUrl, params = {}) {
   const supabaseUrl = (cloudFields.supabaseUrl.value || defaultCloudConfig.supabaseUrl || "").replace(/\/$/, "");
   if (supabaseUrl) {
     try {
-      const proxyUrl = `${supabaseUrl}/functions/v1/market-proxy?source=${encodeURIComponent(source)}`;
+      const query = new URLSearchParams({ source, ...params });
+      const proxyUrl = `${supabaseUrl}/functions/v1/market-proxy?${query.toString()}`;
       const response = await fetch(proxyUrl);
       if (response.ok) return response.json();
     } catch {
@@ -563,10 +562,13 @@ function openStockForEditing(id) {
   const card = stocksEl.querySelector(`[data-id="${id}"]`);
   if (!card) return;
   setCardOpen(card, true);
+  window.requestAnimationFrame(() => {
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
   const symbolInput = card.querySelector("[data-field='symbol']");
   if (symbolInput) {
     symbolInput.focus();
-    symbolInput.select();
+    if (symbolInput.value) symbolInput.select();
   }
 }
 
@@ -878,7 +880,7 @@ addStockButton.addEventListener("click", () => {
   const id = crypto.randomUUID();
   stocks = [
     ...stocks,
-    { id, symbol: "新標的", entry: "", buyDate: "", current: "", high: "", shares: "" },
+    { id, symbol: "", entry: "", buyDate: "", current: "", high: "", shares: "" },
   ];
   save();
   render();
