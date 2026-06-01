@@ -7,7 +7,7 @@
     <meta name="description" content="同時追蹤多檔股票的移動停利出場點。">
     <title>股票移動停利清單</title>
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=25">
+    <link rel="stylesheet" href="styles.css?v=26">
   </head>
   <body>
     <main class="app-shell">
@@ -114,6 +114,24 @@
         </div>
       </section>
 
+      <section class="pnl-trend" aria-label="每日損益趨勢">
+        <div class="trend-head">
+          <div>
+            <h2>每日損益</h2>
+            <p id="pnlTrendMeta">近 30 日</p>
+          </div>
+          <strong id="pnlTrendValue">-</strong>
+        </div>
+        <div class="trend-chart">
+          <svg id="pnlTrendChart" viewBox="0 0 640 180" role="img" aria-label="每日損益趨勢線">
+            <path id="pnlTrendArea"></path>
+            <line id="pnlTrendZero"></line>
+            <polyline id="pnlTrendLine"></polyline>
+          </svg>
+          <p id="pnlTrendEmpty">有目前價、買進價與股數後開始累積。</p>
+        </div>
+      </section>
+
       <section class="stock-list" aria-label="股票清單">
         <div class="list-head">
           <h2>持倉監控</h2>
@@ -215,6 +233,6 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=25"></script>
+    <script src="app.js?v=26"></script>
   </body>
 </html>

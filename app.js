@@ -31,6 +31,16 @@ const summary = {
   totalProfit: document.querySelector("#totalProfit"),
 };
 
+const pnlTrend = {
+  value: document.querySelector("#pnlTrendValue"),
+  meta: document.querySelector("#pnlTrendMeta"),
+  chart: document.querySelector("#pnlTrendChart"),
+  area: document.querySelector("#pnlTrendArea"),
+  zero: document.querySelector("#pnlTrendZero"),
+  line: document.querySelector("#pnlTrendLine"),
+  empty: document.querySelector("#pnlTrendEmpty"),
+};
+
 const storageKey = "stock-exit-portfolio-v3";
 const cloudConfigKey = "stock-exit-supabase-config-v1";
 const defaultCloudConfig = {
@@ -86,6 +96,7 @@ let hasLoadedCloudOnce = false;
 let cloudRefreshTimer = null;
 let cloudChannel = null;
 let cloudSettingsId = null;
+let pnlHistory = [];
 const stockLookupTimers = new Map();
 const stockLookupCache = new Map();
 let tpexListingsPromise = null;
@@ -135,9 +146,26 @@ function currency(value) {
   });
 }
 
+function compactCurrency(value) {
+  if (!Number.isFinite(value)) return "-";
+  const sign = value > 0 ? "+" : "";
+  const abs = Math.abs(value);
+  if (abs >= 100000000) return `${sign}${(value / 100000000).toFixed(2)}億`;
+  if (abs >= 10000) return `${sign}${(value / 10000).toFixed(1)}萬`;
+  return `${sign}${currency(value)}`;
+}
+
 function percent(value) {
   if (!Number.isFinite(value)) return "-";
   return `${value.toFixed(2)}%`;
+}
+
+function todayKey(date = new Date()) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
 }
 
 function parseStockNo(symbol) {
@@ -641,8 +669,73 @@ function openStockForEditing(id) {
   }
 }
 
+function recordDailyPnlSnapshot(value, count) {
+  if (!Number.isFinite(value) || count <= 0) return false;
+  const date = todayKey();
+  const roundedValue = Math.round(value * 100) / 100;
+  const current = pnlHistory.find((item) => item.date === date);
+  let changed = false;
+  if (current) {
+    changed = current.value !== roundedValue || current.count !== count;
+    current.value = roundedValue;
+    current.count = count;
+  } else {
+    pnlHistory.push({ date, value: roundedValue, count });
+    changed = true;
+  }
+  pnlHistory = pnlHistory
+    .filter((item) => item.date && Number.isFinite(Number(item.value)))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-90);
+  return changed;
+}
+
+function renderPnlTrend() {
+  const points = pnlHistory.slice(-30);
+  if (points.length === 0) {
+    pnlTrend.value.textContent = "-";
+    pnlTrend.value.classList.remove("down");
+    pnlTrend.meta.textContent = "近 30 日";
+    pnlTrend.chart.hidden = true;
+    pnlTrend.empty.hidden = false;
+    return;
+  }
+
+  const width = 640;
+  const height = 180;
+  const padding = 16;
+  const values = points.map((item) => Number(item.value));
+  const minValue = Math.min(...values, 0);
+  const maxValue = Math.max(...values, 0);
+  const span = maxValue - minValue || 1;
+  const xStep = points.length > 1 ? (width - padding * 2) / (points.length - 1) : 0;
+  const yFor = (value) => height - padding - ((value - minValue) / span) * (height - padding * 2);
+  const linePoints = points.map((item, index) => {
+    const x = points.length > 1 ? padding + index * xStep : width / 2;
+    return `${x.toFixed(1)},${yFor(Number(item.value)).toFixed(1)}`;
+  }).join(" ");
+  const zeroY = yFor(0);
+  const areaPoints = `${padding},${height - padding} ${linePoints} ${width - padding},${height - padding}`;
+  const last = points[points.length - 1];
+  const first = points[0];
+
+  pnlTrend.chart.hidden = false;
+  pnlTrend.empty.hidden = true;
+  pnlTrend.value.textContent = compactCurrency(Number(last.value));
+  pnlTrend.value.classList.toggle("down", Number(last.value) < 0);
+  pnlTrend.meta.textContent = `${first.date.slice(5).replace("-", "/")} - ${last.date.slice(5).replace("-", "/")} · ${last.count} 檔`;
+  pnlTrend.line.setAttribute("points", linePoints);
+  pnlTrend.area.setAttribute("d", `M ${areaPoints} Z`);
+  pnlTrend.zero.setAttribute("x1", padding);
+  pnlTrend.zero.setAttribute("x2", width - padding);
+  pnlTrend.zero.setAttribute("y1", zeroY);
+  pnlTrend.zero.setAttribute("y2", zeroY);
+  pnlTrend.line.classList.toggle("down", Number(last.value) < 0);
+  pnlTrend.area.classList.toggle("down", Number(last.value) < 0);
+}
+
 function refreshResults() {
-  const totals = { exit: 0, hold: 0, inactive: 0, profit: 0 };
+  const totals = { exit: 0, hold: 0, inactive: 0, profit: 0, dailyPnl: 0, dailyPnlCount: 0 };
 
   stocks.forEach((stock) => {
     const result = calculateStock(stock);
@@ -650,6 +743,13 @@ function refreshResults() {
     if (result.state === "hold") totals.hold += 1;
     if (result.state === "inactive") totals.inactive += 1;
     if (Number.isFinite(result.profit)) totals.profit += result.profit;
+    const entry = numberValue(stock.entry);
+    const current = numberValue(stock.current);
+    const pnlShares = numberValue(stock.shares);
+    if (entry > 0 && current > 0 && pnlShares > 0) {
+      totals.dailyPnl += (current - entry) * pnlShares;
+      totals.dailyPnlCount += 1;
+    }
 
     const card = stocksEl.querySelector(`[data-id="${stock.id}"]`);
     if (!card) return;
@@ -680,6 +780,9 @@ function refreshResults() {
   summary.holdCount.textContent = totals.hold;
   summary.inactiveCount.textContent = totals.inactive;
   summary.totalProfit.textContent = currency(totals.profit);
+  const trendChanged = recordDailyPnlSnapshot(totals.dailyPnl, totals.dailyPnlCount);
+  renderPnlTrend();
+  if (trendChanged) saveLocalSnapshot();
 }
 
 function save() {
@@ -695,6 +798,7 @@ function saveLocalSnapshot() {
       pullbackPercent: settings.pullbackPercent.value,
     },
     stocks,
+    pnlHistory,
   };
   localStorage.setItem(storageKey, JSON.stringify(data));
 }
@@ -728,6 +832,17 @@ function restore() {
         high: stock.high ?? "",
         shares: stock.shares ?? "",
       }));
+    }
+    if (Array.isArray(data.pnlHistory)) {
+      pnlHistory = data.pnlHistory
+        .filter((item) => item?.date && Number.isFinite(Number(item.value)))
+        .map((item) => ({
+          date: item.date,
+          value: Number(item.value),
+          count: Number(item.count) || 0,
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .slice(-90);
     }
   } catch {
     localStorage.removeItem(storageKey);
