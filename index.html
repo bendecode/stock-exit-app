@@ -3,17 +3,17 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#101418">
+    <meta name="theme-color" content="#f4f7fb">
     <meta name="description" content="同時追蹤多檔股票的移動停利出場點。">
     <title>股票移動停利清單</title>
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=26">
+    <link rel="stylesheet" href="styles.css?v=27">
   </head>
   <body>
     <main class="app-shell">
       <section class="hero" aria-labelledby="appTitle">
         <div>
-          <p class="eyebrow">EXIT MONITOR</p>
+          <p class="eyebrow">持倉決策台</p>
           <h1 id="appTitle">移動停利監控</h1>
         </div>
         <div class="hero-actions">
@@ -135,7 +135,7 @@
       <section class="stock-list" aria-label="股票清單">
         <div class="list-head">
           <h2>持倉監控</h2>
-          <p id="listHint">Positions</p>
+          <p id="listHint">即時監控</p>
         </div>
         <div id="stocks"></div>
       </section>
@@ -233,6 +233,6 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=26"></script>
+    <script src="app.js?v=27"></script>
   </body>
 </html>
