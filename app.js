@@ -35,9 +35,8 @@ const pnlTrend = {
   value: document.querySelector("#pnlTrendValue"),
   meta: document.querySelector("#pnlTrendMeta"),
   chart: document.querySelector("#pnlTrendChart"),
-  area: document.querySelector("#pnlTrendArea"),
-  zero: document.querySelector("#pnlTrendZero"),
-  line: document.querySelector("#pnlTrendLine"),
+  grid: document.querySelector("#pnlTrendGrid"),
+  bars: document.querySelector("#pnlTrendBars"),
   empty: document.querySelector("#pnlTrendEmpty"),
 };
 
@@ -97,6 +96,7 @@ let cloudRefreshTimer = null;
 let cloudChannel = null;
 let cloudSettingsId = null;
 let pnlHistory = [];
+let remoteDeletedIds = new Set();
 const stockLookupTimers = new Map();
 const stockLookupCache = new Map();
 let tpexListingsPromise = null;
@@ -122,6 +122,7 @@ async function applySession(session) {
 
   if (!currentUser) {
     cloudSettingsId = null;
+    remoteDeletedIds = new Set();
     setCloudStatus("尚未登入，資料目前只存在這台裝置。");
     return;
   }
@@ -153,6 +154,14 @@ function compactCurrency(value) {
   if (abs >= 100000000) return `${sign}${(value / 100000000).toFixed(2)}億`;
   if (abs >= 10000) return `${sign}${(value / 10000).toFixed(1)}萬`;
   return `${sign}${currency(value)}`;
+}
+
+function formatWan(value) {
+  if (!Number.isFinite(value)) return "-";
+  const wan = value / 10000;
+  if (Math.abs(wan) >= 100) return wan.toFixed(0);
+  if (Math.abs(wan) >= 10) return wan.toFixed(1).replace(/\.0$/, "");
+  return wan.toFixed(2).replace(/\.?0+$/, "");
 }
 
 function percent(value) {
@@ -702,20 +711,23 @@ function renderPnlTrend() {
   }
 
   const width = 640;
-  const height = 180;
-  const padding = 16;
+  const height = 220;
+  const padding = { top: 16, right: 16, bottom: 38, left: 56 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
   const values = points.map((item) => Number(item.value));
   const minValue = Math.min(...values, 0);
   const maxValue = Math.max(...values, 0);
   const span = maxValue - minValue || 1;
-  const xStep = points.length > 1 ? (width - padding * 2) / (points.length - 1) : 0;
-  const yFor = (value) => height - padding - ((value - minValue) / span) * (height - padding * 2);
-  const linePoints = points.map((item, index) => {
-    const x = points.length > 1 ? padding + index * xStep : width / 2;
-    return `${x.toFixed(1)},${yFor(Number(item.value)).toFixed(1)}`;
-  }).join(" ");
+  const tickCount = 4;
+  const yFor = (value) => padding.top + ((maxValue - value) / span) * plotHeight;
   const zeroY = yFor(0);
-  const areaPoints = `${padding},${height - padding} ${linePoints} ${width - padding},${height - padding}`;
+  const slot = plotWidth / points.length;
+  const barWidth = Math.max(8, Math.min(34, slot * 0.48));
+  const tickValues = Array.from({ length: tickCount + 1 }, (_, index) => (
+    minValue + (span / tickCount) * index
+  ));
+  const dateStep = Math.max(1, Math.ceil(points.length / 4));
   const last = points[points.length - 1];
   const first = points[0];
 
@@ -723,15 +735,27 @@ function renderPnlTrend() {
   pnlTrend.empty.hidden = true;
   pnlTrend.value.textContent = compactCurrency(Number(last.value));
   pnlTrend.value.classList.toggle("down", Number(last.value) < 0);
-  pnlTrend.meta.textContent = `${first.date.slice(5).replace("-", "/")} - ${last.date.slice(5).replace("-", "/")} · ${last.count} 檔`;
-  pnlTrend.line.setAttribute("points", linePoints);
-  pnlTrend.area.setAttribute("d", `M ${areaPoints} Z`);
-  pnlTrend.zero.setAttribute("x1", padding);
-  pnlTrend.zero.setAttribute("x2", width - padding);
-  pnlTrend.zero.setAttribute("y1", zeroY);
-  pnlTrend.zero.setAttribute("y2", zeroY);
-  pnlTrend.line.classList.toggle("down", Number(last.value) < 0);
-  pnlTrend.area.classList.toggle("down", Number(last.value) < 0);
+  pnlTrend.meta.textContent = `${first.date.slice(5).replace("-", "/")} - ${last.date.slice(5).replace("-", "/")} · 單位：萬 · ${last.count} 檔`;
+  pnlTrend.grid.innerHTML = [
+    ...tickValues.map((value) => {
+      const y = yFor(value);
+      return `<line x1="${padding.left}" x2="${width - padding.right}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"></line><text x="${padding.left - 8}" y="${(y + 4).toFixed(1)}">${formatWan(value)}</text>`;
+    }),
+    `<line class="zero" x1="${padding.left}" x2="${width - padding.right}" y1="${zeroY.toFixed(1)}" y2="${zeroY.toFixed(1)}"></line>`,
+    `<text class="unit" x="8" y="15">(萬)</text>`,
+  ].join("");
+  pnlTrend.bars.innerHTML = points.map((item, index) => {
+    const value = Number(item.value);
+    const x = padding.left + index * slot + (slot - barWidth) / 2;
+    const y = value >= 0 ? yFor(value) : zeroY;
+    const barHeight = Math.max(2, Math.abs(yFor(value) - zeroY));
+    const dateLabel = item.date.slice(5).replace("-", "/");
+    const showDate = index === 0 || index === points.length - 1 || index % dateStep === 0;
+    return [
+      `<rect class="${value < 0 ? "down" : "up"}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}" rx="3"></rect>`,
+      showDate ? `<text class="date" x="${(x + barWidth / 2).toFixed(1)}" y="${height - 12}">${dateLabel}</text>` : "",
+    ].join("");
+  }).join("");
 }
 
 function refreshResults() {
@@ -813,6 +837,23 @@ function stocksSignature(items = stocks) {
     high: stock.high ?? "",
     shares: stock.shares ?? "",
   })));
+}
+
+function hasMeaningfulStock(stock) {
+  return Boolean(parseStockNo(stock.symbol) || stock.symbol || stock.entry || stock.current || stock.high || stock.shares || stock.buyDate);
+}
+
+function mergeCloudStocks(cloudStocks) {
+  const cloudIds = new Set(cloudStocks.map((stock) => stock.id));
+  const localOnlyStocks = stocks.filter((stock) => (
+    !cloudIds.has(stock.id)
+    && !remoteDeletedIds.has(stock.id)
+    && hasMeaningfulStock(stock)
+  ));
+  return {
+    mergedStocks: [...cloudStocks, ...localOnlyStocks],
+    preservedCount: localOnlyStocks.length,
+  };
 }
 
 function restore() {
@@ -926,7 +967,8 @@ function startCloudRealtime() {
         table: "positions",
         filter: `user_id=eq.${currentUser.id}`,
       },
-      () => {
+      (payload) => {
+        if (payload.eventType === "DELETE" && payload.old?.id) remoteDeletedIds.add(payload.old.id);
         if (!hasLocalChanges) pullCloudPositions({ silent: true });
       },
     )
@@ -1005,13 +1047,22 @@ async function pullCloudPositions({ silent = false } = {}) {
 
   if (positionRows.length > 0 || hasLoadedCloudOnce) {
     const cloudStocks = positionRows.map(fromPositionRow);
-    if (stocksSignature(cloudStocks) !== stocksSignature()) {
-      stocks = cloudStocks;
+    const { mergedStocks, preservedCount } = mergeCloudStocks(cloudStocks);
+    if (stocksSignature(mergedStocks) !== stocksSignature()) {
+      stocks = mergedStocks;
       saveLocalSnapshot();
       render();
     }
+    if (preservedCount > 0) {
+      hasLocalChanges = true;
+      scheduleCloudSave();
+    }
     hasLoadedCloudOnce = true;
-    if (!silent) setCloudStatus(`已更新雲端資料，共 ${stocks.length} 檔標的。`);
+    if (!silent) {
+      setCloudStatus(preservedCount > 0
+        ? `已更新雲端資料，並保留 ${preservedCount} 檔尚未上傳完成的本機標的。`
+        : `已更新雲端資料，共 ${stocks.length} 檔標的。`);
+    }
   } else if (stocks.length > 0) {
     await syncCloudNow();
     hasLoadedCloudOnce = true;
@@ -1198,6 +1249,7 @@ cloudSignOut.addEventListener("click", async () => {
   hasLocalChanges = false;
   hasLoadedCloudOnce = false;
   cloudSettingsId = null;
+  remoteDeletedIds = new Set();
   window.clearInterval(cloudRefreshTimer);
   cloudLoginButton.hidden = false;
   cloudSignOut.hidden = true;
