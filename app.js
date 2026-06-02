@@ -450,10 +450,43 @@ async function fetchTpexLatest(stock) {
   };
 }
 
+function realtimePriceFromPayload(payload) {
+  const quote = Array.isArray(payload?.msgArray) ? payload.msgArray[0] : null;
+  if (!quote) return null;
+  const candidates = [quote.z, quote.pz, quote.a?.split("_")?.[0], quote.b?.split("_")?.[0], quote.y];
+  const price = candidates.map(parseTwseNumber).find(Number.isFinite);
+  if (!Number.isFinite(price) || price <= 0) return null;
+  return {
+    current: price,
+    name: quote.n || "",
+    time: [quote.d, quote.t || quote["%"]].filter(Boolean).join(" "),
+  };
+}
+
+async function fetchRealtimeQuote(stockNo, preferredMarket = "") {
+  const markets = preferredMarket ? [preferredMarket] : ["tse", "otc"];
+  for (const market of markets) {
+    try {
+      const directUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${market}_${stockNo}.tw&json=1&delay=0`;
+      const payload = await fetchMarketJson("twse-realtime", directUrl, { stockNo, market });
+      const quote = realtimePriceFromPayload(payload);
+      if (quote) return { ...quote, market };
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 async function fetchMarketHigh(stock) {
   const stockNo = parseStockNo(stock.symbol);
+  let data = null;
   try {
-    return await fetchListedHighSince(stock);
+    data = await fetchListedHighSince(stock);
+    const realtime = await fetchRealtimeQuote(stockNo, "tse");
+    return realtime
+      ? { ...data, current: realtime.current, note: "已更新高點與上市即時價" }
+      : { ...data, note: "已更新高點，使用最新收盤價" };
   } catch (listedError) {
     if (/請先|不能晚於/.test(listedError.message)) throw listedError;
     if (listedError.market === "listed") throw listedError;
@@ -464,11 +497,15 @@ async function fetchMarketHigh(stock) {
       if (stockNo && await hasListedData(stockNo)) throw listedError;
       throw tpexError;
     }
+    const realtime = await fetchRealtimeQuote(stockNo, tpexData.market === "otc" ? "otc" : "");
     return {
       ...tpexData,
-      note: tpexData.market === "emerging"
-        ? "興櫃使用 TPEx 最新均價/成交資訊"
-        : "上櫃使用 TPEx 最新收盤資訊",
+      current: realtime?.current ?? tpexData.current,
+      note: realtime
+        ? "已更新高點與上櫃即時價"
+        : tpexData.market === "emerging"
+          ? "興櫃使用 TPEx 最新均價/成交資訊"
+          : "上櫃使用 TPEx 最新收盤資訊",
       listedError,
     };
   }

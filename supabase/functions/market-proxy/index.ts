@@ -17,6 +17,12 @@ function resolveSourceUrl(url: URL) {
     if (!/^\d{4,6}$/.test(stockNo) || !/^\d{8}$/.test(date)) return "";
     return `https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?date=${date}&stockNo=${stockNo}&response=json`;
   }
+  if (source === "twse-realtime") {
+    const stockNo = url.searchParams.get("stockNo") || "";
+    const market = url.searchParams.get("market") || "";
+    if (!/^\d{4,6}$/.test(stockNo) || !/^(tse|otc)$/.test(market)) return "";
+    return `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${market}_${stockNo}.tw&json=1&delay=0`;
+  }
   return staticSources[source] || "";
 }
 
