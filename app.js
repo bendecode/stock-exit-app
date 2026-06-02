@@ -81,10 +81,7 @@ const stockDirectory = [
   ["6505", "台塑化"],
 ].map(([code, name]) => ({ code, name, label: `${code} ${name}` }));
 
-let stocks = [
-  { id: crypto.randomUUID(), symbol: "2330 台積電", entry: 800, buyDate: "2026-01-02", current: 950, high: 1000, shares: 1000 },
-  { id: crypto.randomUUID(), symbol: "範例 B", entry: 100, buyDate: "2026-01-02", current: 114, high: 120, shares: 1000 },
-];
+let stocks = [];
 let supabaseClient = null;
 let currentUser = null;
 let cloudReady = false;
@@ -175,6 +172,12 @@ function todayKey(date = new Date()) {
     String(date.getMonth() + 1).padStart(2, "0"),
     String(date.getDate()).padStart(2, "0"),
   ].join("-");
+}
+
+function addDays(date, amount) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + amount);
+  return next;
 }
 
 function parseStockNo(symbol) {
@@ -681,11 +684,18 @@ function openStockForEditing(id) {
 function recordDailyPnlSnapshot(value, count) {
   if (!Number.isFinite(value) || count <= 0) return false;
   const date = todayKey();
+  const previousDate = todayKey(addDays(new Date(), -1));
   const roundedValue = Math.round(value * 100) / 100;
-  const current = pnlHistory.find((item) => item.date === date);
   let changed = false;
+  if (pnlHistory.length === 0 || (pnlHistory.length === 1 && pnlHistory[0].date === date)) {
+    if (!pnlHistory.some((item) => item.date === previousDate)) {
+      pnlHistory.push({ date: previousDate, value: roundedValue, count });
+      changed = true;
+    }
+  }
+  const current = pnlHistory.find((item) => item.date === date);
   if (current) {
-    changed = current.value !== roundedValue || current.count !== count;
+    changed = changed || current.value !== roundedValue || current.count !== count;
     current.value = roundedValue;
     current.count = count;
   } else {
@@ -843,15 +853,38 @@ function hasMeaningfulStock(stock) {
   return Boolean(parseStockNo(stock.symbol) || stock.symbol || stock.entry || stock.current || stock.high || stock.shares || stock.buyDate);
 }
 
+function sameValue(a, b) {
+  return String(a ?? "") === String(b ?? "");
+}
+
+function isSeedDemoStock(stock) {
+  return (
+    sameValue(stock.symbol, "2330 台積電")
+    && sameValue(stock.entry, 800)
+    && sameValue(stock.buyDate, "2026-01-02")
+    && sameValue(stock.current, 950)
+    && sameValue(stock.high, 1000)
+    && sameValue(stock.shares, 1000)
+  ) || (
+    sameValue(stock.symbol, "範例 B")
+    && sameValue(stock.entry, 100)
+    && sameValue(stock.buyDate, "2026-01-02")
+    && sameValue(stock.current, 114)
+    && sameValue(stock.high, 120)
+    && sameValue(stock.shares, 1000)
+  );
+}
+
 function mergeCloudStocks(cloudStocks) {
   const cloudIds = new Set(cloudStocks.map((stock) => stock.id));
   const localOnlyStocks = stocks.filter((stock) => (
     !cloudIds.has(stock.id)
     && !remoteDeletedIds.has(stock.id)
     && hasMeaningfulStock(stock)
+    && !isSeedDemoStock(stock)
   ));
   return {
-    mergedStocks: [...cloudStocks, ...localOnlyStocks],
+    mergedStocks: [...cloudStocks.filter((stock) => !isSeedDemoStock(stock)), ...localOnlyStocks],
     preservedCount: localOnlyStocks.length,
   };
 }
@@ -864,15 +897,17 @@ function restore() {
       settings.pullbackPercent.value = data.settings.pullbackPercent ?? settings.pullbackPercent.value;
     }
     if (Array.isArray(data.stocks) && data.stocks.length > 0) {
-      stocks = data.stocks.map((stock) => ({
-        id: stock.id || crypto.randomUUID(),
-        symbol: stock.symbol || "未命名",
-        entry: stock.entry ?? "",
-        buyDate: stock.buyDate ?? "",
-        current: stock.current ?? "",
-        high: stock.high ?? "",
-        shares: stock.shares ?? "",
-      }));
+      stocks = data.stocks
+        .map((stock) => ({
+          id: stock.id || crypto.randomUUID(),
+          symbol: stock.symbol || "未命名",
+          entry: stock.entry ?? "",
+          buyDate: stock.buyDate ?? "",
+          current: stock.current ?? "",
+          high: stock.high ?? "",
+          shares: stock.shares ?? "",
+        }))
+        .filter((stock) => !isSeedDemoStock(stock));
     }
     if (Array.isArray(data.pnlHistory)) {
       pnlHistory = data.pnlHistory
@@ -1043,10 +1078,21 @@ async function pullCloudPositions({ silent = false } = {}) {
   const rows = Array.isArray(data) ? data : [];
   const settingsRow = rows.find((row) => row.symbol === cloudSettingsSymbol);
   const positionRows = rows.filter((row) => row.symbol !== cloudSettingsSymbol);
+  const demoRows = positionRows.filter((row) => isSeedDemoStock(fromPositionRow(row)));
+  if (demoRows.length > 0) {
+    supabaseClient
+      .from("positions")
+      .delete()
+      .in("id", demoRows.map((row) => row.id))
+      .then(({ error: cleanupError }) => {
+        if (cleanupError && !silent) setCloudStatus(cleanupError.message);
+      });
+  }
+  const realPositionRows = positionRows.filter((row) => !isSeedDemoStock(fromPositionRow(row)));
   if (settingsRow) applyCloudSettings(settingsRow);
 
-  if (positionRows.length > 0 || hasLoadedCloudOnce) {
-    const cloudStocks = positionRows.map(fromPositionRow);
+  if (realPositionRows.length > 0 || hasLoadedCloudOnce) {
+    const cloudStocks = realPositionRows.map(fromPositionRow);
     const { mergedStocks, preservedCount } = mergeCloudStocks(cloudStocks);
     if (stocksSignature(mergedStocks) !== stocksSignature()) {
       stocks = mergedStocks;
@@ -1088,7 +1134,7 @@ async function syncCloudNow() {
   syncNowButton.textContent = "同步中...";
   try {
     await ensureCloudSettingsId();
-    const rows = [...stocks.map(toPositionRow), toSettingsRow()];
+    const rows = [...stocks.filter((stock) => !isSeedDemoStock(stock)).map(toPositionRow), toSettingsRow()];
     if (rows.length > 0) {
       const { error } = await supabaseClient.from("positions").upsert(rows, { onConflict: "id" });
       if (error) throw error;
