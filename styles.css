@@ -170,13 +170,61 @@ h1 {
 }
 
 .settings-panel {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  display: block;
   padding: 8px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+}
+
+.settings-panel summary {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ink);
+  cursor: pointer;
+  list-style: none;
+}
+
+.settings-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-panel summary::after {
+  content: "▾";
+  color: var(--muted);
+  font-size: 0.82rem;
+  transition: transform 180ms ease;
+}
+
+.settings-panel[open] summary {
+  margin-bottom: 8px;
+}
+
+.settings-panel[open] summary::after {
+  transform: rotate(180deg);
+}
+
+.settings-panel summary span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.settings-panel summary strong {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 850;
+  text-align: right;
+}
+
+.settings-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 label {
@@ -522,7 +570,7 @@ input:focus {
 }
 
 #stocks {
-  --stack-overlap: 34px;
+  --stack-overlap: 20px;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -562,11 +610,6 @@ input:focus {
   background: linear-gradient(135deg, oklch(0.36 0.074 78), oklch(0.24 0.036 252));
 }
 
-.stock-card:hover {
-  transform: translateY(-3px);
-  z-index: 3;
-}
-
 .stock-card.expanded {
   z-index: 10;
   margin-top: 10px;
@@ -596,6 +639,13 @@ input:focus {
   text-align: left;
 }
 
+@media (hover: hover) {
+  .stock-card:hover {
+    transform: translateY(-3px);
+    z-index: 3;
+  }
+}
+
 .position-summary:hover {
   background:
     radial-gradient(circle at 88% 12%, oklch(1 0 0 / 0.23), transparent 26%),
@@ -614,7 +664,7 @@ input:focus {
 
 .position-summary small {
   display: block;
-  margin-bottom: 3px;
+  margin-bottom: 0;
   color: oklch(0.89 0.012 252 / 0.78);
   font-size: 0.68rem;
   font-weight: 800;
@@ -626,6 +676,19 @@ input:focus {
   font-size: 0.94rem;
   font-weight: 900;
   text-align: right;
+}
+
+.position-summary > span:not(.position-symbol):not(.badge):not(.summary-cue) {
+  min-width: 0;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid oklch(1 0 0 / 0.16);
+  border-radius: 999px;
+  background: oklch(1 0 0 / 0.11);
 }
 
 .position-summary strong.gain-up {
@@ -870,6 +933,18 @@ input:focus {
   .settings-panel,
   .summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settings-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settings-panel summary {
+    align-items: flex-start;
+  }
+
+  .settings-panel summary strong {
+    font-size: 0.82rem;
   }
 
   .summary-card {

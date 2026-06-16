@@ -7,7 +7,7 @@
     <meta name="description" content="同時追蹤多檔股票的移動停利出場點。">
     <title>股票移動停利清單</title>
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=32">
+    <link rel="stylesheet" href="styles.css?v=33">
   </head>
   <body>
     <main class="app-shell">
@@ -25,23 +25,29 @@
         </div>
       </section>
 
-      <section class="settings-panel" aria-label="全域停利設定">
-        <label>
-          <span>啟動獲利率</span>
-          <div class="percent-input">
-            <input id="activationPercent" inputmode="decimal" type="number" min="0" step="0.1" value="10">
-            <span>%</span>
-          </div>
-        </label>
+      <details class="settings-panel" aria-label="全域停利設定">
+        <summary>
+          <span>停利設定</span>
+          <strong>啟動獲利率 / 回落獲利比例</strong>
+        </summary>
+        <div class="settings-fields">
+          <label>
+            <span>啟動獲利率</span>
+            <div class="percent-input">
+              <input id="activationPercent" inputmode="decimal" type="number" min="0" step="0.1" value="10">
+              <span>%</span>
+            </div>
+          </label>
 
-        <label>
-          <span>回落獲利比例</span>
-          <div class="percent-input">
-            <input id="pullbackPercent" inputmode="decimal" type="number" min="0" max="100" step="0.1" value="20">
-            <span>%</span>
-          </div>
-        </label>
-      </section>
+          <label>
+            <span>回落獲利比例</span>
+            <div class="percent-input">
+              <input id="pullbackPercent" inputmode="decimal" type="number" min="0" max="100" step="0.1" value="20">
+              <span>%</span>
+            </div>
+          </label>
+        </div>
+      </details>
 
       <section class="cloud-panel" aria-label="雲端同步設定">
         <div class="cloud-head">
@@ -233,6 +239,6 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=32"></script>
+    <script src="app.js?v=33"></script>
   </body>
 </html>
