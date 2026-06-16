@@ -6,6 +6,7 @@ const cloudStatus = document.querySelector("#cloudStatus");
 const cloudLoginButton = document.querySelector("#cloudLogin");
 const cloudSignOut = document.querySelector("#cloudSignOut");
 const loginModal = document.querySelector("#loginModal");
+const loginStatus = document.querySelector("#loginStatus");
 const closeLoginModalButton = document.querySelector("#closeLoginModal");
 const saveCloudConfigButton = document.querySelector("#saveCloudConfig");
 const sendLoginLinkButton = document.querySelector("#sendLoginLink");
@@ -550,7 +551,14 @@ function setCloudStatus(text) {
   cloudStatus.textContent = text;
 }
 
+function setLoginStatus(text, state = "") {
+  if (!loginStatus) return;
+  loginStatus.textContent = text;
+  loginStatus.className = `login-status ${state}`.trim();
+}
+
 function openLoginModal() {
+  setLoginStatus("");
   loginModal.hidden = false;
   window.setTimeout(() => cloudFields.loginEmail.focus(), 0);
 }
@@ -1089,24 +1097,46 @@ async function sendLoginCode() {
   const client = await initSupabase();
   const email = cloudFields.loginEmail.value.trim();
   if (!client || !email) {
-    setCloudStatus("請先填 Supabase 設定和 Email。");
+    const message = "請先填 Supabase 設定和 Email。";
+    setCloudStatus(message);
+    setLoginStatus(message, "error");
+    return;
+  }
+  if (!email.includes("@")) {
+    const message = "請輸入有效的 Email。";
+    setCloudStatus(message);
+    setLoginStatus(message, "error");
     return;
   }
   sendLoginLinkButton.disabled = true;
   sendLoginLinkButton.textContent = "寄送中...";
-  const { error } = await client.auth.signInWithOtp({
-    email,
-    options: { shouldCreateUser: true },
-  });
-  sendLoginLinkButton.disabled = false;
-  sendLoginLinkButton.textContent = "寄驗證碼";
-  if (error) {
-    setCloudStatus(error.message);
-    return;
+  setLoginStatus("正在寄送驗證碼...");
+  try {
+    const { error } = await client.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: window.location.href.split("#")[0],
+      },
+    });
+    if (error) {
+      setCloudStatus(error.message);
+      setLoginStatus(error.message, "error");
+      return;
+    }
+    saveCloudConfig();
+    const message = "驗證碼已寄出，請在這裡輸入 Email 裡的驗證碼。";
+    setCloudStatus(message);
+    setLoginStatus(message, "success");
+    cloudFields.loginCode.focus();
+  } catch (error) {
+    const message = error?.message || "寄送失敗，請確認網路連線後再試一次。";
+    setCloudStatus(message);
+    setLoginStatus(message, "error");
+  } finally {
+    sendLoginLinkButton.disabled = false;
+    sendLoginLinkButton.textContent = "寄驗證碼";
   }
-  saveCloudConfig();
-  setCloudStatus("驗證碼已寄出，請在這裡輸入 Email 裡的驗證碼。");
-  cloudFields.loginCode.focus();
 }
 
 async function verifyLoginCode() {
@@ -1114,26 +1144,38 @@ async function verifyLoginCode() {
   const email = cloudFields.loginEmail.value.trim();
   const token = cloudFields.loginCode.value.trim().replace(/\s/g, "");
   if (!client || !email || !token) {
-    setCloudStatus("請先填 Email 和驗證碼。");
+    const message = "請先填 Email 和驗證碼。";
+    setCloudStatus(message);
+    setLoginStatus(message, "error");
     return;
   }
 
   verifyLoginCodeButton.disabled = true;
   verifyLoginCodeButton.textContent = "驗證中...";
-  const { data, error } = await client.auth.verifyOtp({
-    email,
-    token,
-    type: "email",
-  });
-  verifyLoginCodeButton.disabled = false;
-  verifyLoginCodeButton.textContent = "驗證登入";
-  if (error) {
-    setCloudStatus(error.message);
-    return;
-  }
+  setLoginStatus("正在驗證...");
+  try {
+    const { data, error } = await client.auth.verifyOtp({
+      email,
+      token,
+      type: "email",
+    });
+    if (error) {
+      setCloudStatus(error.message);
+      setLoginStatus(error.message, "error");
+      return;
+    }
 
-  saveCloudConfig();
-  await applySession(data.session);
+    saveCloudConfig();
+    await applySession(data.session);
+    setLoginStatus("登入成功。", "success");
+  } catch (error) {
+    const message = error?.message || "驗證失敗，請稍後再試。";
+    setCloudStatus(message);
+    setLoginStatus(message, "error");
+  } finally {
+    verifyLoginCodeButton.disabled = false;
+    verifyLoginCodeButton.textContent = "驗證登入";
+  }
 }
 
 async function pullCloudPositions({ silent = false } = {}) {

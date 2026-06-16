@@ -406,6 +406,23 @@ input:focus {
   line-height: 1.45;
 }
 
+.login-status {
+  min-height: 18px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.login-status.error {
+  color: var(--danger);
+}
+
+.login-status.success {
+  color: var(--accent-strong);
+}
+
 .login-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
