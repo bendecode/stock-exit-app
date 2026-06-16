@@ -1279,11 +1279,41 @@ async function updateHigh(id) {
 }
 
 updateAllButton.addEventListener("click", async () => {
+  const ids = stocks.map((stock) => stock.id);
+  if (ids.length === 0) return;
   updateAllButton.disabled = true;
-  updateAllButton.textContent = "更新中...";
-  for (const stock of stocks) {
-    await updateHigh(stock.id);
+  updateAllButton.textContent = `更新中 0/${ids.length}`;
+  const updates = new Map();
+  const statuses = new Map();
+
+  for (const [index, id] of ids.entries()) {
+    const stock = stocks.find((item) => item.id === id);
+    if (!stock) continue;
+    setUpdateStatus(id, "更新中...");
+    updateAllButton.textContent = `更新中 ${index + 1}/${ids.length}`;
+    try {
+      const data = await fetchMarketHigh(stock);
+      updates.set(id, data);
+      statuses.set(id, {
+        text: data.note || `已更新至 ${data.latestDate?.toLocaleDateString("zh-TW") || "最新交易日"}`,
+        state: "success",
+      });
+    } catch (error) {
+      statuses.set(id, { text: friendlyErrorMessage(error), state: "error" });
+    }
   }
+
+  if (updates.size > 0) {
+    stocks = stocks.map((item) => {
+      const data = updates.get(item.id);
+      if (!data) return item;
+      return { ...item, high: Math.max(numberValue(item.high), data.high), current: data.current ?? item.current };
+    });
+    save();
+    render();
+  }
+
+  statuses.forEach((status, id) => setUpdateStatus(id, status.text, status.state));
   updateAllButton.disabled = false;
   updateAllButton.textContent = "更新全部高點";
 });

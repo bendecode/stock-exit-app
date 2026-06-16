@@ -88,19 +88,13 @@ p {
 }
 
 .section-menu {
-  display: flex;
-  gap: 18px;
-  overflow-x: auto;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
   padding: 2px 2px 6px;
-  scrollbar-width: none;
-}
-
-.section-menu::-webkit-scrollbar {
-  display: none;
 }
 
 .section-menu button {
-  flex: 0 0 auto;
   border: 0;
   background: transparent;
   color: var(--muted);
@@ -108,7 +102,8 @@ p {
   font-size: 0.74rem;
   font-weight: 850;
   letter-spacing: 0.02em;
-  padding: 0;
+  padding: 5px 0;
+  text-align: center;
 }
 
 .section-menu button.is-active {
@@ -277,6 +272,7 @@ label span {
 
 input {
   width: 100%;
+  min-width: 0;
   height: 36px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
@@ -831,6 +827,12 @@ input:focus {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
+}
+
+.stock-inputs > label,
+.result-grid > div,
+.stock-card-head > label {
+  min-width: 0;
 }
 
 .stock-result {
