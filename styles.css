@@ -66,6 +66,7 @@ p {
 }
 
 .hero,
+.section-menu,
 .settings-panel,
 .cloud-panel,
 .summary-grid,
@@ -84,6 +85,35 @@ p {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+}
+
+.section-menu {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  padding: 2px 2px 6px;
+  scrollbar-width: none;
+}
+
+.section-menu::-webkit-scrollbar {
+  display: none;
+}
+
+.section-menu a {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 850;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+.section-menu a:first-child {
+  color: var(--ink);
+}
+
+.section-menu a:hover {
+  color: var(--accent-strong);
 }
 
 .eyebrow {
@@ -173,10 +203,11 @@ h1 {
 
 .settings-panel {
   display: block;
-  padding: 8px;
+  padding: 9px 10px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-tight);
 }
 
 .settings-panel summary {
@@ -275,10 +306,11 @@ input:focus {
 }
 
 .cloud-panel {
-  padding: 8px 10px;
-  background: var(--surface-2);
+  padding: 9px 10px;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-tight);
 }
 
 .cloud-head {
@@ -393,6 +425,7 @@ input:focus {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-tight);
 }
 
 .summary-card span {
@@ -436,6 +469,7 @@ input:focus {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-tight);
 }
 
 .trend-head {
@@ -705,16 +739,11 @@ input:focus {
 
 .position-summary > span:not(.position-symbol):not(.badge):not(.summary-cue) {
   min-width: 0;
-  min-height: 34px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 7px 9px;
-  border: 1px solid oklch(1 0 0 / 0.16);
-  border-radius: 999px;
-  background: oklch(1 0 0 / 0.14);
-  backdrop-filter: blur(16px);
+  gap: 7px;
+  padding: 0;
 }
 
 .position-summary strong.gain-up {
@@ -1000,6 +1029,10 @@ input:focus {
 
   .position-summary > span:not(.position-symbol):not(.badge):not(.summary-cue) {
     min-width: 0;
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-start;
+    gap: 6px;
   }
 
   .position-summary small,
