@@ -20,8 +20,8 @@
   --radius: 8px;
   --radius-sm: 6px;
   --shadow-tight: 0 2px 8px oklch(0.21 0.026 252 / 0.08);
-  --wallet-shadow: 0 18px 34px oklch(0.2 0.026 252 / 0.16);
-  --wallet-shadow-open: 0 22px 44px oklch(0.2 0.026 252 / 0.22);
+  --wallet-shadow: 0 18px 34px oklch(0.21 0.026 252 / 0.18);
+  --wallet-shadow-open: 0 22px 48px oklch(0.21 0.026 252 / 0.24);
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif;
 }
 
@@ -36,7 +36,9 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--bg);
+  background:
+    radial-gradient(circle at 50% -12%, oklch(0.88 0.04 176 / 0.38), transparent 32%),
+    linear-gradient(180deg, oklch(0.99 0.004 248), var(--bg) 48%, oklch(0.945 0.012 248));
   color: var(--ink);
   font-family: var(--font);
   font-size: 15px;
@@ -560,6 +562,7 @@ input:focus {
 }
 
 .list-head h2 {
+  color: var(--ink);
   font-size: 1rem;
 }
 
@@ -581,8 +584,10 @@ input:focus {
   position: relative;
   display: grid;
   padding: 0;
-  background: linear-gradient(135deg, oklch(0.31 0.038 252), oklch(0.24 0.032 252));
-  border: 1px solid oklch(1 0 0 / 0.24);
+  background:
+    radial-gradient(circle at 84% 18%, oklch(1 0 0 / 0.22), transparent 24%),
+    linear-gradient(135deg, oklch(0.72 0.16 55), oklch(0.61 0.15 35));
+  border: 1px solid oklch(1 0 0 / 0.18);
   border-radius: 18px;
   box-shadow: var(--wallet-shadow);
   overflow: clip;
@@ -595,19 +600,39 @@ input:focus {
 }
 
 .stock-card:nth-child(4n + 1) {
-  background: linear-gradient(135deg, oklch(0.34 0.05 252), oklch(0.23 0.036 252));
+  background:
+    radial-gradient(circle at 84% 18%, oklch(1 0 0 / 0.22), transparent 24%),
+    linear-gradient(135deg, oklch(0.72 0.16 55), oklch(0.61 0.15 35));
 }
 
 .stock-card:nth-child(4n + 2) {
-  background: linear-gradient(135deg, oklch(0.38 0.075 176), oklch(0.22 0.04 195));
+  background:
+    radial-gradient(circle at 84% 18%, oklch(1 0 0 / 0.2), transparent 24%),
+    linear-gradient(135deg, oklch(0.64 0.18 294), oklch(0.55 0.16 265));
 }
 
 .stock-card:nth-child(4n + 3) {
-  background: linear-gradient(135deg, oklch(0.37 0.071 28), oklch(0.24 0.04 252));
+  background:
+    radial-gradient(circle at 84% 18%, oklch(1 0 0 / 0.2), transparent 24%),
+    linear-gradient(135deg, oklch(0.68 0.19 24), oklch(0.58 0.2 355));
 }
 
 .stock-card:nth-child(4n + 4) {
-  background: linear-gradient(135deg, oklch(0.36 0.074 78), oklch(0.24 0.036 252));
+  background:
+    radial-gradient(circle at 84% 18%, oklch(1 0 0 / 0.18), transparent 24%),
+    linear-gradient(135deg, oklch(0.66 0.17 142), oklch(0.53 0.14 158));
+}
+
+.stock-card:nth-child(6n + 5) {
+  background:
+    radial-gradient(circle at 84% 18%, oklch(1 0 0 / 0.2), transparent 24%),
+    linear-gradient(135deg, oklch(0.7 0.18 329), oklch(0.56 0.17 302));
+}
+
+.stock-card:nth-child(6n) {
+  background:
+    radial-gradient(circle at 84% 18%, oklch(1 0 0 / 0.2), transparent 24%),
+    linear-gradient(135deg, oklch(0.72 0.13 225), oklch(0.56 0.13 246));
 }
 
 .stock-card.expanded {
@@ -631,7 +656,7 @@ input:focus {
   align-items: center;
   padding: 12px 14px;
   background:
-    radial-gradient(circle at 88% 12%, oklch(1 0 0 / 0.18), transparent 26%),
+    linear-gradient(100deg, oklch(1 0 0 / 0.13), transparent 42%),
     linear-gradient(180deg, oklch(1 0 0 / 0.1), transparent);
   color: #ffffff;
   border: 0;
@@ -648,7 +673,7 @@ input:focus {
 
 .position-summary:hover {
   background:
-    radial-gradient(circle at 88% 12%, oklch(1 0 0 / 0.23), transparent 26%),
+    linear-gradient(100deg, oklch(1 0 0 / 0.17), transparent 42%),
     linear-gradient(180deg, oklch(1 0 0 / 0.13), transparent);
 }
 
@@ -688,7 +713,8 @@ input:focus {
   padding: 7px 9px;
   border: 1px solid oklch(1 0 0 / 0.16);
   border-radius: 999px;
-  background: oklch(1 0 0 / 0.11);
+  background: oklch(1 0 0 / 0.14);
+  backdrop-filter: blur(16px);
 }
 
 .position-summary strong.gain-up {
