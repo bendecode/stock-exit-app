@@ -7,7 +7,7 @@
     <meta name="description" content="同時追蹤多檔股票的移動停利出場點。">
     <title>股票移動停利清單</title>
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=31">
+    <link rel="stylesheet" href="styles.css?v=32">
   </head>
   <body>
     <main class="app-shell">
@@ -126,6 +126,7 @@
           <svg id="pnlTrendChart" viewBox="0 0 640 220" role="img" aria-label="每日損益柱狀趨勢圖">
             <g id="pnlTrendGrid"></g>
             <g id="pnlTrendBars"></g>
+            <g id="pnlTrendLine"></g>
           </svg>
           <p id="pnlTrendEmpty">有目前價、買進價與股數後開始累積。</p>
         </div>
@@ -154,20 +155,8 @@
             <strong data-output="summaryCurrent">-</strong>
           </span>
           <span>
-            <small>損益%</small>
-            <strong data-output="gainPercent">-</strong>
-          </span>
-          <span>
             <small>出場價</small>
             <strong data-output="exitPrice">-</strong>
-          </span>
-          <span>
-            <small>距離</small>
-            <strong data-output="distance">-</strong>
-          </span>
-          <span>
-            <small>估算獲利</small>
-            <strong data-output="profit">-</strong>
           </span>
           <span class="summary-cue" aria-hidden="true">詳情</span>
         </button>
@@ -218,6 +207,18 @@
                 <strong data-output="activationPrice">-</strong>
               </div>
               <div>
+                <span>損益%</span>
+                <strong data-output="gainPercent">-</strong>
+              </div>
+              <div>
+                <span>距離</span>
+                <strong data-output="distance">-</strong>
+              </div>
+              <div>
+                <span>估算獲利</span>
+                <strong data-output="profit">-</strong>
+              </div>
+              <div>
                 <span>高點獲利率</span>
                 <strong data-output="highGain">-</strong>
               </div>
@@ -232,6 +233,6 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=31"></script>
+    <script src="app.js?v=32"></script>
   </body>
 </html>

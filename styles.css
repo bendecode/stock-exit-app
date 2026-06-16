@@ -465,6 +465,24 @@ input:focus {
   text-anchor: middle;
 }
 
+#pnlTrendLine path {
+  fill: none;
+  stroke: oklch(0.68 0.19 342);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 4;
+}
+
+#pnlTrendLine circle {
+  fill: #ffffff;
+  stroke: oklch(0.68 0.19 342);
+  stroke-width: 3;
+}
+
+#pnlTrendLine circle.down {
+  stroke: oklch(0.64 0.115 176);
+}
+
 #pnlTrendEmpty {
   position: absolute;
   inset: 0;
@@ -504,7 +522,7 @@ input:focus {
 }
 
 #stocks {
-  --stack-overlap: 22px;
+  --stack-overlap: 34px;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -563,12 +581,12 @@ input:focus {
 
 .position-summary {
   width: 100%;
-  min-height: 104px;
+  min-height: 82px;
   display: grid;
-  grid-template-columns: minmax(168px, 1.7fr) auto repeat(6, minmax(84px, 1fr)) 72px;
-  gap: 10px;
+  grid-template-columns: minmax(168px, 1.7fr) auto repeat(3, minmax(86px, 0.72fr)) 72px;
+  gap: 9px;
   align-items: center;
-  padding: 16px;
+  padding: 12px 14px;
   background:
     radial-gradient(circle at 88% 12%, oklch(1 0 0 / 0.18), transparent 26%),
     linear-gradient(180deg, oklch(1 0 0 / 0.1), transparent);
@@ -873,10 +891,10 @@ input:focus {
   }
 
   .position-summary {
-    min-height: auto;
+    min-height: 86px;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 7px;
-    padding: 9px;
+    padding: 10px;
   }
 
   .position-summary > span:not(.position-symbol):not(.badge):not(.summary-cue) {
@@ -901,7 +919,15 @@ input:focus {
 
   .summary-cue {
     grid-column: 3;
+    grid-row: 1;
     justify-self: end;
+    align-self: end;
+    font-size: 0;
+  }
+
+  .summary-cue::before {
+    margin-right: 0;
+    font-size: 0.84rem;
   }
 
   .stock-inputs,

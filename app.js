@@ -37,6 +37,7 @@ const pnlTrend = {
   chart: document.querySelector("#pnlTrendChart"),
   grid: document.querySelector("#pnlTrendGrid"),
   bars: document.querySelector("#pnlTrendBars"),
+  line: document.querySelector("#pnlTrendLine"),
   empty: document.querySelector("#pnlTrendEmpty"),
 };
 
@@ -791,6 +792,13 @@ function renderPnlTrend() {
     `<line class="zero" x1="${padding.left}" x2="${width - padding.right}" y1="${zeroY.toFixed(1)}" y2="${zeroY.toFixed(1)}"></line>`,
     `<text class="unit" x="8" y="15">(萬)</text>`,
   ].join("");
+  const linePoints = points.map((item, index) => {
+    const value = Number(item.value);
+    const x = padding.left + index * slot + slot / 2;
+    const y = yFor(value);
+    return { x, y, value };
+  });
+
   pnlTrend.bars.innerHTML = points.map((item, index) => {
     const value = Number(item.value);
     const x = padding.left + index * slot + (slot - barWidth) / 2;
@@ -803,6 +811,16 @@ function renderPnlTrend() {
       showDate ? `<text class="date" x="${(x + barWidth / 2).toFixed(1)}" y="${height - 12}">${dateLabel}</text>` : "",
     ].join("");
   }).join("");
+
+  const path = linePoints.map((point, index) => (
+    `${index === 0 ? "M" : "L"}${point.x.toFixed(1)} ${point.y.toFixed(1)}`
+  )).join(" ");
+  pnlTrend.line.innerHTML = [
+    `<path d="${path}"></path>`,
+    ...linePoints.map((point) => (
+      `<circle class="${point.value < 0 ? "down" : "up"}" cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="3.4"></circle>`
+    )),
+  ].join("");
 }
 
 function refreshResults() {
