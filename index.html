@@ -7,7 +7,7 @@
     <meta name="description" content="同時追蹤多檔股票的移動停利出場點。">
     <title>股票移動停利清單</title>
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=35">
+    <link rel="stylesheet" href="styles.css?v=36">
   </head>
   <body>
     <main class="app-shell">
@@ -25,15 +25,14 @@
         </div>
       </section>
 
-      <nav class="section-menu" aria-label="主要資訊">
-        <a href="#stocksSection">持倉</a>
-        <a href="#portfolioSummary">總覽</a>
-        <a href="#pnlSection">損益</a>
-        <a href="#cloudSection">同步</a>
-        <a href="#settingsSection">設定</a>
+      <nav class="section-menu" aria-label="資訊分頁">
+        <button type="button" data-tab="overview">總覽</button>
+        <button type="button" data-tab="pnl">損益</button>
+        <button type="button" data-tab="cloud">同步</button>
+        <button type="button" data-tab="settings">設定</button>
       </nav>
 
-      <details class="settings-panel" id="settingsSection" aria-label="全域停利設定">
+      <details class="settings-panel" id="settingsSection" data-panel="settings" aria-label="全域停利設定" hidden>
         <summary>
           <span>停利設定</span>
           <strong>啟動獲利率 / 回落獲利比例</strong>
@@ -57,7 +56,7 @@
         </div>
       </details>
 
-      <section class="cloud-panel" id="cloudSection" aria-label="雲端同步設定">
+      <section class="cloud-panel" id="cloudSection" data-panel="cloud" aria-label="雲端同步設定" hidden>
         <div class="cloud-head">
           <div>
             <h2>雲端同步</h2>
@@ -109,7 +108,7 @@
         </div>
       </div>
 
-      <section class="summary-grid" id="portfolioSummary" aria-live="polite">
+      <section class="summary-grid" id="portfolioSummary" data-panel="overview" aria-live="polite" hidden>
         <div class="summary-card alert">
           <span>需要出場</span>
           <strong id="exitCount">0</strong>
@@ -128,7 +127,7 @@
         </div>
       </section>
 
-      <section class="pnl-trend" id="pnlSection" aria-label="每日損益趨勢">
+      <section class="pnl-trend" id="pnlSection" data-panel="pnl" aria-label="每日損益趨勢" hidden>
         <div class="trend-head">
           <div>
             <h2>每日損益</h2>
@@ -165,7 +164,7 @@
             <strong data-output="summaryShares">-</strong>
           </span>
           <span>
-            <small>目前價</small>
+            <small>現價</small>
             <strong data-output="summaryCurrent">-</strong>
           </span>
           <span>
@@ -247,6 +246,6 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=35"></script>
+    <script src="app.js?v=36"></script>
   </body>
 </html>

@@ -11,6 +11,8 @@ const saveCloudConfigButton = document.querySelector("#saveCloudConfig");
 const sendLoginLinkButton = document.querySelector("#sendLoginLink");
 const verifyLoginCodeButton = document.querySelector("#verifyLoginCode");
 const syncNowButton = document.querySelector("#syncNow");
+const tabButtons = [...document.querySelectorAll("[data-tab]")];
+const tabPanels = [...document.querySelectorAll("[data-panel]")];
 
 const cloudFields = {
   supabaseUrl: document.querySelector("#supabaseUrl"),
@@ -95,6 +97,22 @@ let cloudChannel = null;
 let cloudSettingsId = null;
 let pnlHistory = [];
 let remoteDeletedIds = new Set();
+
+function setActiveInfoTab(nextTab) {
+  const currentTab = tabButtons.find((button) => button.classList.contains("is-active"))?.dataset.tab || "";
+  const activeTab = currentTab === nextTab ? "" : nextTab;
+  tabButtons.forEach((button) => {
+    const isActive = button.dataset.tab === activeTab;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+  tabPanels.forEach((panel) => {
+    panel.hidden = panel.dataset.panel !== activeTab;
+    if (panel.matches("details") && panel.dataset.panel !== activeTab) panel.open = false;
+  });
+  const activePanel = tabPanels.find((panel) => panel.dataset.panel === activeTab);
+  if (activePanel?.matches("details")) activePanel.open = true;
+}
 const stockLookupTimers = new Map();
 const stockLookupCache = new Map();
 let tpexListingsPromise = null;
@@ -1275,6 +1293,11 @@ Object.values(settings).forEach((input) => {
     save();
     refreshResults();
   });
+});
+
+tabButtons.forEach((button) => {
+  button.setAttribute("aria-pressed", "false");
+  button.addEventListener("click", () => setActiveInfoTab(button.dataset.tab));
 });
 
 stocksEl.addEventListener("input", (event) => {
