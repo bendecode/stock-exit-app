@@ -22,7 +22,7 @@
   --shadow-tight: 0 2px 8px oklch(0.21 0.026 252 / 0.08);
   --wallet-shadow: 0 18px 34px oklch(0.21 0.026 252 / 0.18);
   --wallet-shadow-open: 0 22px 48px oklch(0.21 0.026 252 / 0.24);
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif;
+  --font: "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Noto Sans TC", sans-serif;
 }
 
 * {
@@ -42,6 +42,8 @@ body {
   color: var(--ink);
   font-family: var(--font);
   font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "tnum" 1;
 }
 
 button,
@@ -712,8 +714,8 @@ input[type="date"] {
   display: grid;
   grid-template-columns: minmax(168px, 1.55fr) auto repeat(3, minmax(72px, 0.64fr)) 48px;
   gap: 8px;
-  align-items: center;
-  padding: 12px 14px;
+  align-items: start;
+  padding: 11px 14px 24px;
   background:
     linear-gradient(100deg, oklch(1 0 0 / 0.13), transparent 42%),
     linear-gradient(180deg, oklch(1 0 0 / 0.1), transparent);
@@ -1056,10 +1058,10 @@ input[type="date"] {
   }
 
   .position-summary {
-    min-height: 86px;
+    min-height: 90px;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 7px;
-    padding: 10px;
+    padding: 10px 10px 26px;
   }
 
   .position-summary > span:not(.position-symbol):not(.badge):not(.summary-cue) {
