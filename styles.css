@@ -273,6 +273,7 @@ label span {
 input {
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   height: 36px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
@@ -289,6 +290,14 @@ input::placeholder {
 input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--focus);
+}
+
+input[type="date"] {
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  padding-inline: 8px;
+  font-size: 0.88rem;
 }
 
 .percent-input {
@@ -852,6 +861,10 @@ input:focus {
   min-width: 0;
 }
 
+.date-field {
+  overflow: hidden;
+}
+
 .stock-result {
   display: grid;
   grid-template-columns: minmax(140px, 0.74fr) minmax(150px, 0.78fr) minmax(0, 2fr);
@@ -1092,6 +1105,10 @@ input:focus {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .date-field {
+    grid-column: 1 / -1;
+  }
+
   .result-grid {
     grid-column: 1 / -1;
   }
@@ -1156,6 +1173,11 @@ input:focus {
   input {
     height: 34px;
     padding: 0 9px;
+  }
+
+  input[type="date"] {
+    padding-inline: 8px;
+    font-size: 0.82rem;
   }
 
   .result-grid > div {
