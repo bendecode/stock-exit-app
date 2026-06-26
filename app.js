@@ -98,6 +98,7 @@ let cloudChannel = null;
 let cloudSettingsId = null;
 let pnlHistory = [];
 let remoteDeletedIds = new Set();
+let cloudConfigSaveTimer = null;
 
 function setActiveInfoTab(nextTab) {
   const currentTab = tabButtons.find((button) => button.classList.contains("is-active"))?.dataset.tab || "";
@@ -1049,6 +1050,11 @@ function saveCloudConfig() {
   return config;
 }
 
+function scheduleCloudConfigSave() {
+  window.clearTimeout(cloudConfigSaveTimer);
+  cloudConfigSaveTimer = window.setTimeout(saveCloudConfig, 300);
+}
+
 async function initSupabase() {
   const config = saveCloudConfig();
   if (!config.supabaseUrl || !config.supabaseAnonKey) {
@@ -1495,6 +1501,9 @@ verifyLoginCodeButton.addEventListener("click", verifyLoginCode);
 cloudFields.loginCode.addEventListener("keydown", (event) => {
   if (event.key === "Enter") verifyLoginCode();
 });
+
+cloudFields.loginEmail.addEventListener("input", scheduleCloudConfigSave);
+cloudFields.loginEmail.addEventListener("blur", saveCloudConfig);
 
 syncNowButton.addEventListener("click", async () => {
   await initSupabase();
