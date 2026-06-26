@@ -541,10 +541,25 @@ function setUpdateStatus(id, text, state = "") {
 
 function friendlyErrorMessage(error) {
   const message = String(error?.message || error || "");
+  if (/timed out|逾時/i.test(message)) {
+    return "更新逾時，已跳過這檔，請稍後再單獨更新。";
+  }
   if (/FetchEvent|respondWith|response is null|Network request failed|Failed to fetch|Service Unavailable/i.test(message)) {
     return "資料來源暫時無法連線，請稍後再試。";
   }
   return message || "發生未知錯誤";
+}
+
+function withTimeout(promise, milliseconds, message = "更新逾時") {
+  let timeoutId = null;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error(message)), milliseconds);
+  });
+  return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timeoutId));
+}
+
+function fetchMarketHighWithTimeout(stock) {
+  return withTimeout(fetchMarketHigh(stock), 18000, "更新逾時");
 }
 
 function setCloudStatus(text) {
@@ -1306,7 +1321,7 @@ async function updateHigh(id) {
   if (!stock) return;
   setUpdateStatus(id, "更新中...");
   try {
-    const data = await fetchMarketHigh(stock);
+    const data = await fetchMarketHighWithTimeout(stock);
     stocks = stocks.map((item) => (
       item.id === id
         ? { ...item, high: Math.max(numberValue(item.high), data.high), current: data.current ?? item.current }
@@ -1328,36 +1343,39 @@ updateAllButton.addEventListener("click", async () => {
   const updates = new Map();
   const statuses = new Map();
 
-  for (const [index, id] of ids.entries()) {
-    const stock = stocks.find((item) => item.id === id);
-    if (!stock) continue;
-    setUpdateStatus(id, "更新中...");
-    updateAllButton.textContent = `更新中 ${index + 1}/${ids.length}`;
-    try {
-      const data = await fetchMarketHigh(stock);
-      updates.set(id, data);
-      statuses.set(id, {
-        text: data.note || `已更新至 ${data.latestDate?.toLocaleDateString("zh-TW") || "最新交易日"}`,
-        state: "success",
-      });
-    } catch (error) {
-      statuses.set(id, { text: friendlyErrorMessage(error), state: "error" });
+  try {
+    for (const [index, id] of ids.entries()) {
+      const stock = stocks.find((item) => item.id === id);
+      if (!stock) continue;
+      setUpdateStatus(id, "更新中...");
+      updateAllButton.textContent = `更新中 ${index + 1}/${ids.length}`;
+      try {
+        const data = await fetchMarketHighWithTimeout(stock);
+        updates.set(id, data);
+        statuses.set(id, {
+          text: data.note || `已更新至 ${data.latestDate?.toLocaleDateString("zh-TW") || "最新交易日"}`,
+          state: "success",
+        });
+      } catch (error) {
+        statuses.set(id, { text: friendlyErrorMessage(error), state: "error" });
+      }
     }
-  }
 
-  if (updates.size > 0) {
-    stocks = stocks.map((item) => {
-      const data = updates.get(item.id);
-      if (!data) return item;
-      return { ...item, high: Math.max(numberValue(item.high), data.high), current: data.current ?? item.current };
-    });
-    save();
-    render();
-  }
+    if (updates.size > 0) {
+      stocks = stocks.map((item) => {
+        const data = updates.get(item.id);
+        if (!data) return item;
+        return { ...item, high: Math.max(numberValue(item.high), data.high), current: data.current ?? item.current };
+      });
+      save();
+      render();
+    }
 
-  statuses.forEach((status, id) => setUpdateStatus(id, status.text, status.state));
-  updateAllButton.disabled = false;
-  updateAllButton.textContent = "更新全部高點";
+    statuses.forEach((status, id) => setUpdateStatus(id, status.text, status.state));
+  } finally {
+    updateAllButton.disabled = false;
+    updateAllButton.textContent = "更新全部高點";
+  }
 });
 
 Object.values(settings).forEach((input) => {
