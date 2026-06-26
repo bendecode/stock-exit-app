@@ -115,6 +115,7 @@ function setActiveInfoTab(nextTab) {
   if (activePanel?.matches("details")) activePanel.open = true;
 }
 const stockLookupTimers = new Map();
+const autoMarketFillTimers = new Map();
 const stockLookupCache = new Map();
 let tpexListingsPromise = null;
 
@@ -375,6 +376,7 @@ function scheduleSymbolLookup(id, rawValue) {
       save();
       updateCardSymbolLabel(id, label);
       refreshResults();
+      scheduleAutoMarketFill(id);
     } catch {
       // Keep the user's input when online lookup is unavailable.
     }
@@ -1335,6 +1337,49 @@ async function updateHigh(id) {
   }
 }
 
+function shouldAutoFillMarketPrices(stock) {
+  if (!stock || !parseStockNo(stock.symbol)) return false;
+  if (numberValue(stock.entry) <= 0 || !stock.buyDate) return false;
+  if (Number.isNaN(new Date(stock.buyDate).getTime())) return false;
+  return numberValue(stock.current) <= 0 || numberValue(stock.high) <= 0;
+}
+
+function scheduleAutoMarketFill(id) {
+  window.clearTimeout(autoMarketFillTimers.get(id));
+  autoMarketFillTimers.set(id, window.setTimeout(() => {
+    autoFillMarketPrices(id);
+  }, 700));
+}
+
+async function autoFillMarketPrices(id) {
+  const stock = stocks.find((item) => item.id === id);
+  if (!shouldAutoFillMarketPrices(stock)) return;
+  setUpdateStatus(id, "自動查詢現價與高點...");
+  try {
+    const data = await fetchMarketHighWithTimeout(stock);
+    let changed = false;
+    stocks = stocks.map((item) => {
+      if (item.id !== id) return item;
+      const next = { ...item };
+      if (numberValue(next.current) <= 0 && data.current != null) {
+        next.current = data.current;
+        changed = true;
+      }
+      if (numberValue(next.high) <= 0 && Number.isFinite(data.high)) {
+        next.high = data.high;
+        changed = true;
+      }
+      return next;
+    });
+    if (!changed) return;
+    save();
+    render();
+    setUpdateStatus(id, "已自動填入現價與高點。", "success");
+  } catch (error) {
+    setUpdateStatus(id, friendlyErrorMessage(error), "error");
+  }
+}
+
 updateAllButton.addEventListener("click", async () => {
   const ids = stocks.map((stock) => stock.id);
   if (ids.length === 0) return;
@@ -1398,6 +1443,9 @@ stocksEl.addEventListener("input", (event) => {
   if (input.dataset.field === "symbol") {
     if (nextValue !== input.value) input.value = nextValue;
     scheduleSymbolLookup(card.dataset.id, nextValue);
+  }
+  if (["symbol", "entry", "buyDate"].includes(input.dataset.field)) {
+    scheduleAutoMarketFill(card.dataset.id);
   }
 });
 
