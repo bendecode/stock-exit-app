@@ -99,6 +99,8 @@ let cloudSettingsId = null;
 let pnlHistory = [];
 let remoteDeletedIds = new Set();
 let cloudConfigSaveTimer = null;
+let postEditTimer = null;
+const pendingPostEditIds = new Set();
 
 function setActiveInfoTab(nextTab) {
   const currentTab = tabButtons.find((button) => button.classList.contains("is-active"))?.dataset.tab || "";
@@ -364,6 +366,10 @@ function scheduleSymbolLookup(id, rawValue) {
 
   window.clearTimeout(stockLookupTimers.get(id));
   stockLookupTimers.set(id, window.setTimeout(async () => {
+    if (isEditingStockField()) {
+      schedulePostEditWork(id);
+      return;
+    }
     try {
       const label = await fetchListedSymbolLabel(stockNo);
       if (!label) return;
@@ -391,6 +397,32 @@ function updateCardSymbolLabel(id, label) {
   if (symbolInput && document.activeElement !== symbolInput) symbolInput.value = label;
   const summarySymbol = card.querySelector("[data-output='summarySymbol']");
   if (summarySymbol) summarySymbol.textContent = label || "未命名";
+}
+
+function isEditingStockField() {
+  return Boolean(document.activeElement?.closest?.("#stocks [data-field]"));
+}
+
+function schedulePostEditWork(id) {
+  if (id) pendingPostEditIds.add(id);
+  window.clearTimeout(postEditTimer);
+  postEditTimer = window.setTimeout(runPostEditWork, 420);
+}
+
+function runPostEditWork() {
+  if (isEditingStockField()) {
+    schedulePostEditWork();
+    return;
+  }
+  const ids = [...pendingPostEditIds];
+  pendingPostEditIds.clear();
+  refreshResults();
+  ids.forEach((id) => {
+    const stock = stocks.find((item) => item.id === id);
+    if (!stock) return;
+    scheduleSymbolLookup(id, stock.symbol);
+    scheduleAutoMarketFill(id);
+  });
 }
 
 async function fetchListedHighSince(stock) {
@@ -1349,6 +1381,10 @@ function shouldAutoFillMarketPrices(stock) {
 function scheduleAutoMarketFill(id) {
   window.clearTimeout(autoMarketFillTimers.get(id));
   autoMarketFillTimers.set(id, window.setTimeout(() => {
+    if (isEditingStockField()) {
+      schedulePostEditWork(id);
+      return;
+    }
     autoFillMarketPrices(id);
   }, 450));
 }
@@ -1461,14 +1497,18 @@ stocksEl.addEventListener("change", (event) => {
   const input = event.target.closest("[data-field]");
   if (!input) return;
   const card = event.target.closest(".stock-card");
-  const nextValue = updateStock(card.dataset.id, input.dataset.field, input.value);
+  const nextValue = updateStock(card.dataset.id, input.dataset.field, input.value, { refresh: false });
   if (input.dataset.field === "symbol") {
     if (nextValue !== input.value) input.value = nextValue;
-    scheduleSymbolLookup(card.dataset.id, nextValue);
   }
-  if (["symbol", "entry", "buyDate"].includes(input.dataset.field)) {
-    scheduleAutoMarketFill(card.dataset.id);
-  }
+  schedulePostEditWork(card.dataset.id);
+});
+
+stocksEl.addEventListener("focusout", (event) => {
+  const input = event.target.closest("[data-field]");
+  if (!input) return;
+  const card = event.target.closest(".stock-card");
+  schedulePostEditWork(card.dataset.id);
 });
 
 stocksEl.addEventListener("click", (event) => {
