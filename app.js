@@ -389,10 +389,6 @@ function updateCardSymbolLabel(id, label) {
   if (!card) return;
   const symbolInput = card.querySelector("[data-field='symbol']");
   if (symbolInput && document.activeElement !== symbolInput) symbolInput.value = label;
-  if (symbolInput && document.activeElement === symbolInput) {
-    symbolInput.value = label;
-    symbolInput.setSelectionRange(label.length, label.length);
-  }
   const summarySymbol = card.querySelector("[data-output='summarySymbol']");
   if (summarySymbol) summarySymbol.textContent = label || "未命名";
 }
@@ -1303,13 +1299,13 @@ function startCloudAutoRefresh() {
   }, 20000);
 }
 
-function updateStock(id, field, value) {
+function updateStock(id, field, value, { refresh = true } = {}) {
   const nextValue = field === "symbol" ? normalizeSymbol(value) : value;
   stocks = stocks.map((stock) => (
     stock.id === id ? { ...stock, [field]: nextValue } : stock
   ));
   save();
-  refreshResults();
+  if (refresh) refreshResults();
   return nextValue;
 }
 
@@ -1455,18 +1451,24 @@ stocksEl.addEventListener("input", (event) => {
   const input = event.target.closest("[data-field]");
   if (!input) return;
   const card = event.target.closest(".stock-card");
-  const nextValue = updateStock(card.dataset.id, input.dataset.field, input.value);
+  const nextValue = updateStock(card.dataset.id, input.dataset.field, input.value, { refresh: false });
   if (input.dataset.field === "symbol") {
     if (nextValue !== input.value) input.value = nextValue;
-    scheduleSymbolLookup(card.dataset.id, nextValue);
   }
 });
 
 stocksEl.addEventListener("change", (event) => {
   const input = event.target.closest("[data-field]");
-  if (!input || !["symbol", "entry", "buyDate"].includes(input.dataset.field)) return;
+  if (!input) return;
   const card = event.target.closest(".stock-card");
-  scheduleAutoMarketFill(card.dataset.id);
+  const nextValue = updateStock(card.dataset.id, input.dataset.field, input.value);
+  if (input.dataset.field === "symbol") {
+    if (nextValue !== input.value) input.value = nextValue;
+    scheduleSymbolLookup(card.dataset.id, nextValue);
+  }
+  if (["symbol", "entry", "buyDate"].includes(input.dataset.field)) {
+    scheduleAutoMarketFill(card.dataset.id);
+  }
 });
 
 stocksEl.addEventListener("click", (event) => {
