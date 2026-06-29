@@ -1354,7 +1354,7 @@ function scheduleAutoMarketFill(id) {
   window.clearTimeout(autoMarketFillTimers.get(id));
   autoMarketFillTimers.set(id, window.setTimeout(() => {
     autoFillMarketPrices(id);
-  }, 700));
+  }, 450));
 }
 
 async function autoFillMarketPrices(id) {
@@ -1379,7 +1379,17 @@ async function autoFillMarketPrices(id) {
     });
     if (!changed) return;
     save();
-    render();
+    const nextStock = stocks.find((item) => item.id === id);
+    const card = stocksEl.querySelector(`[data-id="${id}"]`);
+    if (card && nextStock) {
+      const currentInput = card.querySelector("[data-field='current']");
+      const highInput = card.querySelector("[data-field='high']");
+      if (currentInput && document.activeElement !== currentInput) currentInput.value = nextStock.current;
+      if (highInput && document.activeElement !== highInput) highInput.value = nextStock.high;
+      refreshResults();
+    } else {
+      render();
+    }
     setUpdateStatus(id, "已自動填入現價與高點。", "success");
   } catch (error) {
     setUpdateStatus(id, friendlyErrorMessage(error), "error");
@@ -1450,9 +1460,13 @@ stocksEl.addEventListener("input", (event) => {
     if (nextValue !== input.value) input.value = nextValue;
     scheduleSymbolLookup(card.dataset.id, nextValue);
   }
-  if (["symbol", "entry", "buyDate"].includes(input.dataset.field)) {
-    scheduleAutoMarketFill(card.dataset.id);
-  }
+});
+
+stocksEl.addEventListener("change", (event) => {
+  const input = event.target.closest("[data-field]");
+  if (!input || !["symbol", "entry", "buyDate"].includes(input.dataset.field)) return;
+  const card = event.target.closest(".stock-card");
+  scheduleAutoMarketFill(card.dataset.id);
 });
 
 stocksEl.addEventListener("click", (event) => {
